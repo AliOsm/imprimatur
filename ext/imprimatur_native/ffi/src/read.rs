@@ -41,18 +41,18 @@ pub fn markdown_native(
 }
 
 /// Called by `Imprimatur.content`: the structure as JSON, the schema the
-/// command line prints, serialized before the GVL is taken back.
+/// command line prints, with each formatted cell's look when `styles`.
 pub fn content_native(
     ruby: &Ruby,
     document: RString,
     max_input: Option<usize>,
     max_inflated: Option<u64>,
     timeout: Option<f64>,
+    styles: bool,
 ) -> Result<RString, Error> {
-    let text = without_gvl(ruby, document, (max_input, max_inflated, timeout), |bytes, limits| {
-        content(bytes, limits).map(|content| Json::Object(json::content(&content)).to_string())
-    })?;
-    Ok(ruby.str_new(&text))
+    let read = without_gvl(ruby, document, (max_input, max_inflated, timeout), content)?;
+    let options = json::Options { styles };
+    Ok(ruby.str_new(&Json::Object(json::content_with(&read, options)).to_string()))
 }
 
 /// Called by `Imprimatur.images`: `[data, description]` pairs, the data

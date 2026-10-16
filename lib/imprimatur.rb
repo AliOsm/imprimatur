@@ -79,14 +79,18 @@ module Imprimatur
     # (+heading+, +paragraph+) with their +:bounds+ in points from the
     # page's top-left corner; a workbook's +:sheets+ of +:rows+ of typed
     # +:cells+ (+number+, +date+, +bool+, +text+, +error+, +formula+) and
-    # +:comments+; a Word document's +:blocks+ (+heading+, +paragraph+,
+    # +:comments+, and from an +.xlsx+ its +:columns+ widths and data
+    # +:validations+; a Word document's +:blocks+ (+heading+, +paragraph+,
     # +list_item+, +table+), their bold, italic and linked +:marks+ as byte
     # ranges. Dates are ISO 8601 strings: Excel's have no time zone.
     #
     #   sheet = Imprimatur.content('sales.xlsx')[:sheets].first
     #   sheet[:rows][1][:cells]  # => [{cell: "A2", type: "text", value: "North"}, ...]
     #
-    # Takes the arguments of {.markdown}, and raises as it does.
+    # Takes the arguments of {.markdown}, and raises as it does. With
+    # +styles: true+ each sheet also lists its formatted cells' +:styles+:
+    # font, size, bold, italic, underline, ARGB color and fill, alignment,
+    # wrap, border and number format.
     #
     # @return [Hash] with symbol keys; +:format+ is +"pdf"+, +"xlsx"+ or +"docx"+
     def content(document, ...) = Reader.content(document, ...)

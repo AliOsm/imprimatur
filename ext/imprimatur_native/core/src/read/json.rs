@@ -9,17 +9,34 @@ mod tests;
 
 use serde_json::{Map, Value as Json, json};
 
-use super::{Block, Bounds, Cell, Content, Grid, Image, ImageLocation, Mark, Page, Sheet, Value};
+use super::{
+    Block, Bounds, Cell, Columns, Content, Grid, Image, ImageLocation, Look, Mark, Page, Sheet,
+    Styled, Validation, Value,
+};
+use crate::xlsx::column_name;
+
+/// What [`content_with`] adds to the content.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Options {
+    /// Each formatted cell of a sheet, with its look.
+    pub styles: bool,
+}
 
 /// The document's content, by format: `pages`, `sheets` or `blocks`.
 #[must_use]
 pub fn content(content: &Content) -> Map<String, Json> {
+    content_with(content, Options::default())
+}
+
+/// The document's content, with what `options` add.
+#[must_use]
+pub fn content_with(content: &Content, options: Options) -> Map<String, Json> {
     let mut object = Map::new();
     object.insert("format".into(), content.format().as_str().into());
     match content {
         Content::Pdf(pages) => object.insert("pages".into(), pages.iter().map(page).collect()),
         Content::Xlsx(sheets) | Content::Ods(sheets) | Content::Xls(sheets) => {
-            object.insert("sheets".into(), sheets.iter().map(sheet).collect())
+            object.insert("sheets".into(), sheets.iter().map(|it| sheet(it, options)).collect())
         }
         Content::Docx(blocks) => object.insert("blocks".into(), blocks.iter().map(block).collect()),
     };
@@ -116,7 +133,7 @@ fn with_marks(mut object: Json, marks: &[Mark]) -> Json {
     object
 }
 
-fn sheet(sheet: &Sheet) -> Json {
+fn sheet(sheet: &Sheet, options: Options) -> Json {
     let comments: Vec<Json> = sheet
         .comments
         .iter()
@@ -125,11 +142,74 @@ fn sheet(sheet: &Sheet) -> Json {
             json!({ "cell": note.reference(), "author": author, "text": note.text })
         })
         .collect();
-    json!({
+    let mut object = json!({
         "name": sheet.name,
         "hidden": sheet.hidden,
         "rows": rows(&sheet.cells, true),
         "comments": comments,
+        "columns": sheet.columns.iter().map(columns).collect::<Vec<_>>(),
+        "validations": sheet.validations.iter().map(validation).collect::<Vec<_>>(),
+    });
+    if options.styles
+        && let Json::Object(fields) = &mut object
+    {
+        fields.insert("styles".into(), sheet.styles.iter().map(styled).collect());
+    }
+    object
+}
+
+/// Columns by letter: `A`, `XFD`.
+fn columns(run: &Columns) -> Json {
+    let name = |column: u32| column_name(u16::try_from(column).unwrap_or(u16::MAX));
+    let (first, last) = (name(run.first), name(run.last));
+    json!({ "first": first, "last": last, "width": run.width, "hidden": run.hidden })
+}
+
+fn validation(rule: &Validation) -> Json {
+    json!({
+        "range": rule.range,
+        "type": rule.kind,
+        "operator": rule.operator,
+        "formula1": rule.formula1,
+        "formula2": rule.formula2,
+        "allow_blank": rule.allow_blank,
+        "alert": rule.alert,
+        "error_title": rule.error_title,
+        "error": rule.error,
+        "prompt_title": rule.prompt_title,
+        "prompt": rule.prompt,
+    })
+}
+
+fn styled(cell: &Styled) -> Json {
+    let Look {
+        font,
+        size,
+        bold,
+        italic,
+        underline,
+        color,
+        fill,
+        align,
+        valign,
+        wrap,
+        border,
+        number_format,
+    } = cell.look.as_ref();
+    json!({
+        "cell": cell.reference(),
+        "font": font,
+        "size": size,
+        "bold": bold,
+        "italic": italic,
+        "underline": underline,
+        "color": color,
+        "fill": fill,
+        "align": align,
+        "valign": valign,
+        "wrap": wrap,
+        "border": border,
+        "number_format": number_format,
     })
 }
 

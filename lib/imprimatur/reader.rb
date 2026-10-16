@@ -21,8 +21,8 @@ module Imprimatur
     def self.markdown(document, **) = Native.markdown(read(document), *limits(**))
 
     # @see Imprimatur.content
-    def self.content(document, **)
-      JSON.parse(Native.content(read(document), *limits(**)), symbolize_names: true)
+    def self.content(document, styles: false, **)
+      JSON.parse(Native.content(read(document), *limits(**), styles ? true : false), symbolize_names: true)
     end
 
     # @see Imprimatur.images

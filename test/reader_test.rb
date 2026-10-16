@@ -7,9 +7,10 @@ class ReaderTest < Minitest::Test
   def workbook
     Imprimatur.xlsx do |book|
       book.sheet('Sales') do |sheet|
-        sheet.row 'Region', 'Amount'
+        sheet.row 'Region', 'Amount', style: Imprimatur.style(bold: true)
         sheet.row 'North | West', 12.5
         sheet.comment 'A1', 'Where it sold', author: 'Finance'
+        sheet.validate 'A2:A9', list: %w[North South]
       end
     end
   end
@@ -64,6 +65,9 @@ class ReaderTest < Minitest::Test
     assert_equal 'Sales', sheet[:name]
     assert_equal({ cell: 'B2', type: 'number', value: 12.5, text: '12.5' }, sheet[:rows][1][:cells][1])
     assert_equal [{ cell: 'A1', author: 'Finance', text: 'Where it sold' }], sheet[:comments]
+    assert_equal '"North,South"', sheet[:validations].first[:formula1]
+    refute sheet.key?(:styles), 'styles are asked for'
+    assert_equal %w[A1 B1], Imprimatur.content(workbook, styles: true)[:sheets].first[:styles].map { it[:cell] }
 
     docx = Imprimatur.content(Imprimatur.docx { it.heading('Report') && it.paragraph('Body text.') })
 

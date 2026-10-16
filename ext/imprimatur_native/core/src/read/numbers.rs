@@ -4,11 +4,8 @@
 
 use std::fmt::Write as _;
 
-use crate::Result;
-use crate::read::Budget;
 use crate::read::content::Value;
 use crate::xlsx::DateTime;
-use crate::xml::reader::{Event, XmlReader};
 
 /// How a number format shows a number.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,35 +21,6 @@ pub enum Shown {
         grouping: bool,
         percent: bool,
     },
-}
-
-/// How each cell format (`cellXfs`, by index) shows numbers.
-pub fn styles(text: &str, budget: &Budget<'_>) -> Result<Vec<Shown>> {
-    let mut xml = XmlReader::new(text, budget.max_depth());
-    let (mut custom, mut shown, mut in_cell_formats) = (Vec::new(), Vec::new(), false);
-    while let Some(event) = xml.next()? {
-        match event {
-            Event::Start(tag) => match tag.name() {
-                "numFmt" => {
-                    if let (Some(id), Some(code)) = (tag.attr("numFmtId"), tag.attr("formatCode")) {
-                        custom.push((id.parse::<u32>().unwrap_or(u32::MAX), classify(&code)));
-                    }
-                }
-                "cellXfs" => in_cell_formats = true,
-                "xf" if in_cell_formats => {
-                    let id =
-                        tag.attr("numFmtId").and_then(|id| id.parse::<u32>().ok()).unwrap_or(0);
-                    let custom =
-                        custom.iter().find(|&&(custom, _)| custom == id).map(|&(_, shown)| shown);
-                    shown.push(custom.unwrap_or_else(|| built_in(id)));
-                }
-                _ => {}
-            },
-            Event::End("cellXfs") => in_cell_formats = false,
-            _ => {}
-        }
-    }
-    Ok(shown)
 }
 
 /// Excel's built-in number formats (ECMA-376 Part 1, 18.8.30), with the

@@ -144,13 +144,84 @@ pub struct Mark {
     pub link: Option<String>,
 }
 
-/// A workbook sheet: its cells, then its comments.
-#[derive(Debug, Clone, PartialEq)]
+/// A workbook sheet: its cells and comments and, from an XLSX workbook,
+/// its column widths, data validations and cell formats.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Sheet {
     pub name: String,
     pub hidden: bool,
     pub cells: Grid,
     pub comments: Vec<Note>,
+    pub columns: Vec<Columns>,
+    pub validations: Vec<Validation>,
+    /// The cells with a format of their own, empty ones included.
+    pub styles: Vec<Styled>,
+}
+
+/// A run of columns, from 0, and their width in characters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Columns {
+    pub first: u32,
+    pub last: u32,
+    pub width: Option<f64>,
+    pub hidden: bool,
+}
+
+/// A data validation rule, as the workbook stores it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Validation {
+    /// The cells it applies to: `B2:B100 D2`.
+    pub range: String,
+    /// `list`, `whole`, `decimal`, `date`, `time`, `textLength`, `custom`,
+    /// or `none` for an input message alone.
+    pub kind: String,
+    pub operator: Option<String>,
+    pub formula1: Option<String>,
+    pub formula2: Option<String>,
+    pub allow_blank: bool,
+    /// `stop`, `warning` or `information`, when a wrong value is refused.
+    pub alert: Option<String>,
+    pub error_title: Option<String>,
+    pub error: Option<String>,
+    pub prompt_title: Option<String>,
+    pub prompt: Option<String>,
+}
+
+/// A cell with a format of its own, from 0.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Styled {
+    pub row: u32,
+    pub column: u32,
+    pub look: Arc<Look>,
+}
+
+impl Styled {
+    /// The cell's A1 reference: `B2`.
+    #[must_use]
+    pub fn reference(&self) -> String {
+        reference(self.row, self.column)
+    }
+}
+
+/// How a cell format shows a cell. Colors are ARGB (`FFFF0000`), and only
+/// those given as such: theme and indexed colors are left out.
+#[derive(Debug, Clone, Default, PartialEq)]
+#[expect(clippy::struct_excessive_bools, reason = "a format's switches, as Excel keeps them")]
+pub struct Look {
+    pub font: String,
+    /// In points.
+    pub size: f64,
+    pub bold: bool,
+    pub italic: bool,
+    pub underline: bool,
+    pub color: Option<String>,
+    pub fill: Option<String>,
+    pub align: Option<String>,
+    pub valign: Option<String>,
+    pub wrap: bool,
+    /// The left border's style: `thin`, `medium`, `thick`, `dashed`...
+    pub border: Option<String>,
+    pub number_format: String,
 }
 
 /// A comment on a cell.

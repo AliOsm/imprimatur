@@ -3,19 +3,21 @@
 //! digits), formulas without a cached result as `=FORMULA`, then the sheet's
 //! comments.
 
+mod formats;
 #[cfg(test)]
 mod tests;
 
 use std::sync::Arc;
 
+use self::formats::{Formats, formats};
 use super::Budget;
-use super::content::{Grid, Note, Sheet, Value};
-use super::numbers::{Shown, push_number, styles};
+use super::content::{Columns, Grid, Note, Sheet, Styled, Validation, Value};
+use super::numbers::{Shown, push_number};
 use super::package::Package;
 use crate::Result;
 use crate::xlsx::parse_cell_reference;
 use crate::xlsx::text::unescape as unescape_xstring;
-use crate::xml::reader::{Event, XmlReader};
+use crate::xml::reader::{Event, Tag, XmlReader};
 
 /// A cell's `t` attribute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,13 +53,24 @@ impl Strings {
     }
 }
 
-/// Where a cell's text events go.
+/// Where a cell's text events go, or a validation's formulas'.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Into {
     Nowhere,
     Value,
     Formula,
     Inline,
+    First,
+    Second,
+}
+
+/// What a sheet holds besides its cells' values.
+#[derive(Default)]
+struct Parts {
+    columns: Vec<Columns>,
+    validations: Vec<Validation>,
+    /// Cells with a format of their own: row, column, format.
+    styled: Vec<(u32, u32, usize)>,
 }
 
 pub fn content(package: &Package<'_>, budget: &Budget<'_>) -> Result<Vec<Sheet>> {
@@ -67,21 +80,31 @@ pub fn content(package: &Package<'_>, budget: &Budget<'_>) -> Result<Vec<Sheet>>
     let (listed, date1904) = workbook(&text, &relationships, budget)?;
     let strings = package
         .parse_related(&relationships, "sharedStrings", |text| shared_strings(text, budget))?;
-    let shown = package.parse_related(&relationships, "styles", |text| styles(text, budget))?;
-    let book = Book { strings: &strings, shown: &shown, date1904 };
+    let formats = package.parse_related(&relationships, "styles", |text| formats(text, budget))?;
+    let book = Book { strings: &strings, shown: &formats.shown, date1904 };
     let mut sheets = Vec::with_capacity(listed.len());
     let mut scratch = String::new();
     for sheet in listed {
         budget.check()?;
         let Some(text) = package.text(&sheet.part)? else { continue };
-        let cells = cells(&text, &book, &mut scratch, budget)?;
+        let (cells, parts) = cells(&text, &book, &mut scratch, budget)?;
         let comments = match package.related(&sheet.part, "comments")? {
             Some(part) => package
                 .text(&part)?
                 .map_or_else(|| Ok(Vec::new()), |text| comments(&text, budget))?,
             None => Vec::new(),
         };
-        sheets.push(Sheet { name: sheet.name, hidden: sheet.hidden, cells, comments });
+        let styles = styled(&parts.styled, &formats);
+        let (columns, validations) = (parts.columns, parts.validations);
+        sheets.push(Sheet {
+            name: sheet.name,
+            hidden: sheet.hidden,
+            cells,
+            comments,
+            columns,
+            validations,
+            styles,
+        });
     }
     Ok(sheets)
 }
@@ -155,8 +178,13 @@ struct Head {
     style: usize,
 }
 
-fn cells(text: &str, book: &Book<'_>, scratch: &mut String, budget: &Budget<'_>) -> Result<Grid> {
-    let mut grid = Grid::default();
+fn cells(
+    text: &str,
+    book: &Book<'_>,
+    scratch: &mut String,
+    budget: &Budget<'_>,
+) -> Result<(Grid, Parts)> {
+    let (mut grid, mut parts, mut rule) = (Grid::default(), Parts::default(), None);
     let mut xml = XmlReader::new(text, budget.max_depth());
     let (mut row, mut next_row, mut next_column) = (0_u32, 0_u32, 0_u32);
     let (mut value, mut formula, mut inline) = (String::new(), String::new(), String::new());
@@ -166,10 +194,7 @@ fn cells(text: &str, book: &Book<'_>, scratch: &mut String, budget: &Budget<'_>)
         match event {
             Event::Start(tag) => match tag.name() {
                 "row" => {
-                    row = tag
-                        .attr("r")
-                        .and_then(|r| r.parse::<u32>().ok())
-                        .map_or(next_row, |r| r.saturating_sub(1));
+                    row = tag.parse::<u32>("r").map_or(next_row, |r| r.saturating_sub(1));
                     next_column = 0;
                 }
                 "c" => {
@@ -186,7 +211,7 @@ fn cells(text: &str, book: &Book<'_>, scratch: &mut String, budget: &Budget<'_>)
                         Some("d") => Kind::Iso,
                         _ => Kind::Number,
                     };
-                    let style = tag.attr("s").and_then(|s| s.parse().ok()).unwrap_or(0);
+                    let style = tag.parse("s").unwrap_or(0);
                     head = Some(Head { row: at_row, column, kind, style });
                     value.clear();
                     formula.clear();
@@ -198,17 +223,36 @@ fn cells(text: &str, book: &Book<'_>, scratch: &mut String, budget: &Budget<'_>)
                     into = Into::Inline;
                 }
                 "rPh" => xml.skip()?,
+                "col" => parts.columns.extend(columns(tag)),
+                "dataValidation" => rule = Some(validation(tag)),
+                "formula1" if rule.is_some() => (into, value) = (Into::First, String::new()),
+                "formula2" if rule.is_some() => (into, value) = (Into::Second, String::new()),
                 _ => {}
             },
             Event::Text(text) => match into {
-                Into::Value => value.push_str(&text),
+                Into::Value | Into::First | Into::Second => value.push_str(&text),
                 Into::Formula => formula.push_str(&text),
                 Into::Inline => inline.push_str(&unescape_xstring(&text)),
                 Into::Nowhere => {}
             },
             Event::End("v" | "f" | "t") => into = Into::Nowhere,
+            Event::End(end @ ("formula1" | "formula2")) => {
+                if let Some(rule) = rule.as_mut() {
+                    let formula = Some(std::mem::take(&mut value));
+                    if end == "formula1" {
+                        rule.formula1 = formula;
+                    } else {
+                        rule.formula2 = formula;
+                    }
+                }
+                into = Into::Nowhere;
+            }
+            Event::End("dataValidation") => parts.validations.extend(rule.take()),
             Event::End("c") => {
                 if let Some(head) = head.take() {
+                    if head.style != 0 {
+                        parts.styled.push((head.row, head.column, head.style));
+                    }
                     write_cell(&mut grid, &head, book, [&value, &formula, &inline], scratch);
                     next_column = head.column + 1;
                 }
@@ -217,7 +261,7 @@ fn cells(text: &str, book: &Book<'_>, scratch: &mut String, budget: &Budget<'_>)
             Event::End(_) => {}
         }
     }
-    Ok(grid.finish())
+    Ok((grid.finish(), parts))
 }
 
 fn write_cell(
@@ -272,6 +316,46 @@ fn write_cell(
     grid.end_cell(head.row, head.column, kind);
 }
 
+/// A `<col>`: a run of columns, from 0.
+fn columns(tag: Tag<'_>) -> Option<Columns> {
+    let number = |name| tag.parse::<u32>(name);
+    let (first, last) = (number("min")?.checked_sub(1)?, number("max")?.checked_sub(1)?);
+    let width = tag.parse("width");
+    let hidden = tag.on("hidden");
+    Some(Columns { first, last, width, hidden })
+}
+
+/// A `<dataValidation>`, its formulas still to come.
+fn validation(tag: Tag<'_>) -> Validation {
+    let text = |name| tag.attr(name).map(std::borrow::Cow::into_owned);
+    Validation {
+        range: text("sqref").unwrap_or_default(),
+        kind: text("type").unwrap_or_else(|| "none".to_owned()),
+        operator: text("operator"),
+        allow_blank: tag.on("allowBlank"),
+        alert: tag
+            .on("showErrorMessage")
+            .then(|| text("errorStyle").unwrap_or_else(|| "stop".to_owned())),
+        error_title: text("errorTitle"),
+        error: text("error"),
+        prompt_title: text("promptTitle"),
+        prompt: text("prompt"),
+        ..Validation::default()
+    }
+}
+
+/// The formatted cells with their look; formats the workbook lacks are
+/// left out.
+fn styled(cells: &[(u32, u32, usize)], formats: &Formats) -> Vec<Styled> {
+    cells
+        .iter()
+        .filter_map(|&(row, column, format)| {
+            let look = Arc::clone(formats.looks.get(format)?);
+            Some(Styled { row, column, look })
+        })
+        .collect()
+}
+
 /// The sheet's comments.
 fn comments(text: &str, budget: &Budget<'_>) -> Result<Vec<Note>> {
     let mut xml = XmlReader::new(text, budget.max_depth());
@@ -286,8 +370,7 @@ fn comments(text: &str, budget: &Budget<'_>) -> Result<Vec<Note>> {
                 "author" => in_author = true,
                 "comment" => {
                     position = parse_cell_reference(&tag.attr("ref").unwrap_or_default()).ok();
-                    author_id =
-                        tag.attr("authorId").and_then(|id| id.parse().ok()).unwrap_or(usize::MAX);
+                    author_id = tag.parse("authorId").unwrap_or(usize::MAX);
                     body.clear();
                 }
                 "t" => in_text = true,

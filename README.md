@@ -289,6 +289,15 @@ Imprimatur.content("audit.pdf")[:pages].first[:blocks].first
 #     bounds: {left: 72.0, top: 61.4, right: 290.1, bottom: 85.0}}
 ```
 
+An `.xlsx` sheet also gives its `columns` widths and data `validations`, and
+with `styles: true` the look of each formatted cell, empty ones included:
+
+```ruby
+sheet = Imprimatur.content("template.xlsx", styles: true)[:sheets].first
+sheet[:validations].first  # => {range: "G2:G1000", type: "list", formula1: "\"Yes,No\"", ...}
+sheet[:styles].first       # => {cell: "A1", font: "Arial", size: 12.0, bold: true, fill: "FF808080", ...}
+```
+
 `Imprimatur.images` hands over every image as a file: a PDF's JPEG and JPEG
 2000 as stored, fax scans as TIFF, raw pixels as PNG (soft masks as alpha),
 with the page and place each is drawn at; a Word or Excel document's media,

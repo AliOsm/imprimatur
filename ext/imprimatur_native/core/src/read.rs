@@ -35,7 +35,8 @@ mod xlsx;
 pub(crate) use budget::Budget;
 pub use budget::Limits;
 pub use content::{
-    Block, Bounds, Cell, Content, Grid, Mark, Note, Page, Placed, Sheet, Text, Value,
+    Block, Bounds, Cell, Columns, Content, Grid, Look, Mark, Note, Page, Placed, Sheet, Styled,
+    Text, Validation, Value,
 };
 pub use image::{Image, ImageFormat, ImageLocation};
 

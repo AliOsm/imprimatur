@@ -74,13 +74,9 @@ fn writes_sheets_with_comments() {
             author: Some("Finance".into()),
             text: "first  \nsecond".to_owned(),
         }],
+        ..Sheet::default()
     };
-    let blank = Sheet {
-        name: "Blank".to_owned(),
-        hidden: false,
-        cells: Grid::default(),
-        comments: Vec::new(),
-    };
+    let blank = Sheet { name: "Blank".to_owned(), ..Sheet::default() };
     assert_eq!(
         Content::Xlsx(vec![sheet, blank]).to_markdown(),
         "## Sales (hidden)\n\n| Region |\n| --- |\n| 12.5 |\n\n\

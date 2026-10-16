@@ -52,7 +52,7 @@ pub fn content(ole: &Ole<'_>, budget: &Budget<'_>) -> Result<Vec<Sheet>> {
             name: listed.name.clone(),
             hidden: listed.hidden,
             cells,
-            comments: Vec::new(),
+            ..Sheet::default()
         });
     }
     Ok(sheets)

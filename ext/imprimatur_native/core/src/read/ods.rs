@@ -120,8 +120,7 @@ impl Reader {
                 self.sheets.push(Sheet {
                     name: tag.attr("name").map(std::borrow::Cow::into_owned).unwrap_or_default(),
                     hidden,
-                    cells: Grid::default(),
-                    comments: Vec::new(),
+                    ..Sheet::default()
                 });
                 self.row = 0;
             }

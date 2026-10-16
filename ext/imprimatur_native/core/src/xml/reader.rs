@@ -57,6 +57,16 @@ impl<'a> Tag<'a> {
         }
     }
 
+    /// The attribute parsed: `None` when it is missing or does not parse.
+    pub fn parse<T: std::str::FromStr>(&self, local: &str) -> Option<T> {
+        self.attr(local)?.parse().ok()
+    }
+
+    /// Whether the attribute is there and on: `1`, `true` or `on`.
+    pub fn on(&self, local: &str) -> bool {
+        self.attr(local).is_some() && self.flag(local)
+    }
+
     /// `w:val`-style booleans: present without a value, `1`, `true` or
     /// `on` are true; Word writes `w:val="0"` to switch a property off.
     pub fn flag(&self, local: &str) -> bool {

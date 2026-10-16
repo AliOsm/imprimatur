@@ -2,7 +2,7 @@ use serde_json::json;
 
 use super::*;
 use crate::read::{Limits, Note, Placed, Text, content as read};
-use crate::xlsx::{Cell as Written, Workbook};
+use crate::xlsx::{Cell as Written, CellRange, Color, Format, Validation as Rule, Workbook};
 
 #[test]
 fn types_cells_and_keeps_shown_text_apart() {
@@ -10,6 +10,11 @@ fn types_cells_and_keeps_shown_text_apart() {
     let sheet = book.add_sheet("Ledger").unwrap();
     sheet.append_row([Written::from("Fee"), Written::from(1250.5), Written::from(true)]).unwrap();
     sheet.append_row([Written::formula("SUM(B1:B1)")]).unwrap();
+    let money = Format::new().bold().fill(Color::rgb(0xFF_FF00)).number_format("#,##0.00").unwrap();
+    sheet.write_with_format(0, 1, 1250.5, &money).unwrap();
+    sheet.set_column_width(0, 18.0).unwrap();
+    let yes_no = Rule::list(["Yes", "No"]).unwrap();
+    sheet.add_validation("C1:C10".parse::<CellRange>().unwrap(), yes_no).unwrap();
     let mut content = read(&book.to_bytes().unwrap(), &Limits::default()).unwrap();
     let Content::Xlsx(sheets) = &mut content else { panic!() };
     sheets[0].comments.push(Note { row: 0, column: 1, author: None, text: "net".into() });
@@ -21,7 +26,7 @@ fn types_cells_and_keeps_shown_text_apart() {
             "rows": [
                 { "row": 1, "cells": [
                     { "cell": "A1", "type": "text", "value": "Fee" },
-                    { "cell": "B1", "type": "number", "value": 1250.5, "text": "1250.5" },
+                    { "cell": "B1", "type": "number", "value": 1250.5, "text": "1,250.50" },
                     { "cell": "C1", "type": "bool", "value": true, "text": "TRUE" },
                 ] },
                 { "row": 2, "cells": [
@@ -29,9 +34,21 @@ fn types_cells_and_keeps_shown_text_apart() {
                 ] },
             ],
             "comments": [{ "cell": "B1", "author": null, "text": "net" }],
+            "columns": [{ "first": "A", "last": "A", "width": 18.0, "hidden": false }],
+            "validations": [{
+                "range": "C1:C10", "type": "list", "operator": null,
+                "formula1": "\"Yes,No\"", "formula2": null, "allow_blank": true, "alert": "stop",
+                "error_title": null, "error": null, "prompt_title": null, "prompt": null,
+            }],
+            "styles": [{
+                "cell": "B1", "font": "Calibri", "size": 11.0, "bold": true, "italic": false,
+                "underline": false, "color": null, "fill": "FFFFFF00", "align": null,
+                "valign": null, "wrap": false, "border": null, "number_format": "#,##0.00",
+            }],
         }],
     });
-    assert_eq!(Json::Object(super::content(&content)), expected);
+    let styles = Options { styles: true };
+    assert_eq!(Json::Object(super::content_with(&content, styles)), expected);
 }
 
 #[test]
