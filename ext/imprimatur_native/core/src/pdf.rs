@@ -78,7 +78,7 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
                 id + 1
             ),
         )?;
-        pdf.stream(id + 1, content)?;
+        pdf.stream(id + 1, content, &[])?;
     }
     pdf.finish(CATALOG, INFO)
 }
