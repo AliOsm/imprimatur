@@ -87,6 +87,14 @@ impl<W: Write + Seek> Writer<W> {
         Ok(())
     }
 
+    /// The archive's own comment, shown by most zip tools.
+    ///
+    /// # Errors
+    /// [`Error::Malformed`] for a comment over 65,535 bytes.
+    pub fn set_comment(&mut self, comment: &str) -> Result<()> {
+        self.zip.set_comment(comment).map_err(error)
+    }
+
     /// Writes the central directory and gives the sink back.
     ///
     /// # Errors
@@ -155,6 +163,17 @@ fn civil(days: i64) -> (i64, u8, u8) {
     (year, month, day)
 }
 
+/// What the archive's directory says of an entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Entry {
+    pub name: String,
+    /// Its size once decompressed, as the directory states it.
+    pub size: u64,
+    pub compressed_size: u64,
+    pub crc32: u32,
+    pub comment: String,
+}
+
 /// An archive being read.
 pub struct Archive<R: Read + Seek> {
     zip: ZipArchive<R>,
@@ -185,6 +204,26 @@ impl<R: Read + Seek> Archive<R> {
             .file_names()
             .filter_map(std::result::Result::ok)
             .map(std::borrow::Cow::into_owned)
+            .collect()
+    }
+
+    /// Every entry's name, sizes, checksum and comment, in the archive's
+    /// order, without decompressing anything.
+    ///
+    /// # Errors
+    /// [`Error::Malformed`] for a damaged directory.
+    pub fn entries(&mut self) -> Result<Vec<Entry>> {
+        (0..self.zip.len())
+            .map(|index| {
+                let entry = self.zip.by_index_raw(index).map_err(error)?;
+                Ok(Entry {
+                    name: entry.name().map_err(error)?.into_owned(),
+                    size: entry.size(),
+                    compressed_size: entry.compressed_size(),
+                    crc32: entry.crc32(),
+                    comment: entry.comment().to_owned(),
+                })
+            })
             .collect()
     }
 

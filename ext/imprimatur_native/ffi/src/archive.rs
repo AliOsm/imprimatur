@@ -53,6 +53,12 @@ impl ZipWriter {
         without_gvl(ruby, || writer.add(&name, &data, comment.as_deref()))?.or_raise(ruby)
     }
 
+    /// The archive's own comment.
+    pub fn set_comment(ruby: &Ruby, rb_self: &Self, comment: String) -> Result<(), Error> {
+        let mut slot = borrow(ruby, &rb_self.0, "zip writer")?;
+        slot.as_mut().ok_or_else(|| finished(ruby))?.set_comment(&comment).or_raise(ruby)
+    }
+
     /// Writes the archive's directory; the writer takes no more entries.
     pub fn finish(ruby: &Ruby, rb_self: &Self) -> Result<(), Error> {
         let writer =
@@ -60,6 +66,9 @@ impl ZipWriter {
         without_gvl(ruby, || writer.finish())?.or_raise(ruby).map(drop)
     }
 }
+
+/// An entry for Ruby: name, size, compressed size, CRC-32, comment.
+type EntryRow = (String, u64, u64, u32, String);
 
 #[magnus::wrap(class = "Imprimatur::Native::ZipReader", free_immediately, size)]
 pub struct ZipReader(RefCell<Archive<File>>);
@@ -73,6 +82,17 @@ impl ZipReader {
 
     pub fn names(ruby: &Ruby, rb_self: &Self) -> Result<Vec<String>, Error> {
         Ok(borrow(ruby, &rb_self.0, "zip archive")?.names())
+    }
+
+    /// Each entry's name, size, compressed size, CRC-32 and comment.
+    pub fn entries(ruby: &Ruby, rb_self: &Self) -> Result<Vec<EntryRow>, Error> {
+        let entries = borrow(ruby, &rb_self.0, "zip archive")?.entries().or_raise(ruby)?;
+        Ok(entries
+            .into_iter()
+            .map(|entry| {
+                (entry.name, entry.size, entry.compressed_size, entry.crc32, entry.comment)
+            })
+            .collect())
     }
 
     /// The entry's bytes, `nil` when there is none.

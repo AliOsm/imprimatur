@@ -19,6 +19,12 @@ module Imprimatur
     # Bytes an entry may hold once decompressed by default: 1 GiB.
     MAX_ENTRY_BYTES = 1024**3
 
+    # An entry added to an archive being written.
+    Added = Data.define(:name, :comment)
+
+    # An entry of an archive being read, as its directory states it.
+    Entry = Data.define(:name, :size, :compressed_size, :crc32, :comment)
+
     # Writes an archive at +path+, the block adding its entries. On an
     # error, the partial file is removed.
     #
@@ -47,21 +53,32 @@ module Imprimatur
 
     # Adds entries to an archive being written; see {Zip.write}.
     class Writer
+      # @return [Array<Added>] the entries added so far, in order
+      attr_reader :entries
+
       def initialize(path)
         @native = Native::ZipWriter.new(path.to_s)
+        @entries = []
       end
 
       # Adds the file at +source+ as +name+, streamed from disk, with its
       # modification time.
       def add_file(name, source, comment: nil)
         @native.add_file(name.to_s, source.to_s, comment&.to_s)
+        @entries << Added.new(name: name.to_s, comment: comment&.to_s)
         self
       end
 
       # Adds +data+ as +name+, dated now.
       def add(name, data, comment: nil)
         @native.add(name.to_s, data.to_s.b, comment&.to_s)
+        @entries << Added.new(name: name.to_s, comment: comment&.to_s)
         self
+      end
+
+      # The archive's own comment, shown by most zip tools.
+      def comment=(comment)
+        @native.comment = comment.to_s
       end
 
       # @api private
@@ -79,6 +96,11 @@ module Imprimatur
         @native = Native::ZipReader.new(path.to_s)
         @names = @native.names.freeze
       end
+
+      # Each entry's name, sizes, CRC-32 and comment, nothing decompressed.
+      #
+      # @return [Array<Entry>]
+      def entries = @native.entries.map { |name, size, compressed, crc32, comment| Entry.new(name, size, compressed, crc32, comment) }
 
       # The names matching a shell pattern, +**/+ spanning folders.
       def glob(pattern) = names.select { File.fnmatch?(pattern, it, File::FNM_PATHNAME | File::FNM_EXTGLOB) }

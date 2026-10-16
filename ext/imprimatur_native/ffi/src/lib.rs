@@ -290,10 +290,12 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     zip_writer.define_singleton_method("new", function!(archive::ZipWriter::new, 1))?;
     zip_writer.define_method("add_file", method!(archive::ZipWriter::add_file, 3))?;
     zip_writer.define_method("add", method!(archive::ZipWriter::add, 3))?;
+    zip_writer.define_method("comment=", method!(archive::ZipWriter::set_comment, 1))?;
     zip_writer.define_method("finish", method!(archive::ZipWriter::finish, 0))?;
     let zip_reader = native.define_class("ZipReader", ruby.class_object())?;
     zip_reader.define_singleton_method("new", function!(archive::ZipReader::new, 1))?;
     zip_reader.define_method("names", method!(archive::ZipReader::names, 0))?;
+    zip_reader.define_method("entries", method!(archive::ZipReader::entries, 0))?;
     zip_reader.define_method("read", method!(archive::ZipReader::read, 2))?;
     zip_reader.define_method("extract", method!(archive::ZipReader::extract, 3))?;
     document::define(ruby, native)?;

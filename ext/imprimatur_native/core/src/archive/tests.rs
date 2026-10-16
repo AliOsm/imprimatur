@@ -14,14 +14,27 @@ fn archive(entries: &[(&str, &[u8], Option<&str>)]) -> Vec<u8> {
 
 #[test]
 fn writes_what_it_reads() {
-    let bytes =
-        archive(&[("a/one.txt", b"first", Some("a comment")), ("two.csv", b"x,y\n1,2\n", None)]);
+    let mut writer = Writer::new(Cursor::new(Vec::new()));
+    writer.add("a/one.txt", b"first", Some("a comment")).unwrap();
+    writer.add("two.csv", b"x,y\n1,2\n", None).unwrap();
+    writer.set_comment("an export").unwrap();
+    let bytes = writer.finish().unwrap().into_inner();
     let mut read = Archive::new(Cursor::new(bytes.clone())).unwrap();
+    let entries = read.entries().unwrap();
+    let first = Entry {
+        name: "a/one.txt".into(),
+        size: 5,
+        compressed_size: entries[0].compressed_size,
+        crc32: crc32fast::hash(b"first"),
+        comment: "a comment".into(),
+    };
+    assert_eq!((entries.len(), &entries[0]), (2, &first));
     assert_eq!(read.names(), ["a/one.txt", "two.csv"]);
     assert_eq!(read.read("two.csv", 1024).unwrap().as_deref(), Some(&b"x,y\n1,2\n"[..]));
     assert_eq!(read.read("missing", 1024).unwrap(), None);
     // An independent look at what was written: the comment and the method.
     let mut zip = ZipArchive::new(Cursor::new(bytes)).unwrap();
+    assert_eq!(zip.comment(), b"an export");
     let entry = zip.by_name("a/one.txt").unwrap();
     assert_eq!((entry.comment(), entry.compression()), ("a comment", CompressionMethod::Deflated));
 }

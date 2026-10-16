@@ -10,10 +10,16 @@ class ZipTest < Minitest::Test
       File.utime(Time.utc(2023, 3, 15, 9, 30), Time.utc(2023, 3, 15, 9, 30), source)
       path = File.join(dir, 'export.zip')
 
+      added = nil
       written = Imprimatur::Zip.write(path) do |zip|
         zip.add_file('contracts/0contract.pdf', source, comment: 'Contract - signed')
         zip.add('manifest.json', '{"items":1}')
+        zip.comment = 'An export'
+        added = zip.entries
       end
+
+      assert_equal [['contracts/0contract.pdf', 'Contract - signed'], ['manifest.json', nil]],
+                   added.map { [it.name, it.comment] }
 
       assert_equal path, written
       if system('which unzip', out: File::NULL)
@@ -23,6 +29,9 @@ class ZipTest < Minitest::Test
 
       Imprimatur::Zip.open(path) do |zip|
         assert_equal %w[contracts/0contract.pdf manifest.json], zip.names
+        manifest = zip.entries.last
+
+        assert_equal ['manifest.json', 11, Zlib.crc32('{"items":1}'), ''], manifest.to_h.values_at(:name, :size, :crc32, :comment)
         assert_equal ['contracts/0contract.pdf'], zip.glob('**/*.pdf')
         assert_equal '{"items":1}', zip.read('manifest.json')
         assert_equal Encoding::BINARY, zip.read('manifest.json').encoding
