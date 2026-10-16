@@ -31,7 +31,9 @@ class ZipTest < Minitest::Test
         assert_equal %w[contracts/0contract.pdf manifest.json], zip.names
         manifest = zip.entries.last
 
-        assert_equal ['manifest.json', 11, Zlib.crc32('{"items":1}'), ''], manifest.to_h.values_at(:name, :size, :crc32, :comment)
+        expected = ['manifest.json', 11, Zlib.crc32('{"items":1}'), '']
+
+        assert_equal expected, manifest.to_h.values_at(:name, :size, :crc32, :comment)
         assert_equal ['contracts/0contract.pdf'], zip.glob('**/*.pdf')
         assert_equal '{"items":1}', zip.read('manifest.json')
         assert_equal Encoding::BINARY, zip.read('manifest.json').encoding

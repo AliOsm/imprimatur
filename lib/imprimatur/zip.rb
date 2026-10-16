@@ -100,7 +100,9 @@ module Imprimatur
       # Each entry's name, sizes, CRC-32 and comment, nothing decompressed.
       #
       # @return [Array<Entry>]
-      def entries = @native.entries.map { |name, size, compressed, crc32, comment| Entry.new(name, size, compressed, crc32, comment) }
+      def entries
+        @native.entries.map { |row| Entry.new(*row) }
+      end
 
       # The names matching a shell pattern, +**/+ spanning folders.
       def glob(pattern) = names.select { File.fnmatch?(pattern, it, File::FNM_PATHNAME | File::FNM_EXTGLOB) }
