@@ -147,7 +147,7 @@ const fn days_in_month(year: u16, month: u8) -> u8 {
 
 /// The calendar date `days` after 1970-01-01: the inverse of
 /// [`days_from_civil`] (Howard Hinnant's `civil_from_days`).
-const fn civil_from_days(days: i64) -> (i64, i64, i64) {
+pub const fn civil_from_days(days: i64) -> (i64, i64, i64) {
     let days = days + 719_468;
     let era = days.div_euclid(146_097);
     let day_of_era = days - era * 146_097;

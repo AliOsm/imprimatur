@@ -23,6 +23,7 @@ pub(crate) use cell::push_cell_reference;
 pub use cell::{Cell, cell_reference, column_name};
 pub use comment::Comment;
 pub use date::DateTime;
+pub(crate) use date::civil_from_days;
 use format::Font;
 pub use format::{Border, Format, VerticalAlign};
 pub use range::{CellRange, parse_cell_reference};

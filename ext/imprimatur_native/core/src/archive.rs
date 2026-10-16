@@ -32,6 +32,7 @@ use ::zip::result::ZipError;
 use ::zip::write::FullFileOptions;
 use ::zip::{CompressionMethod, DateTime, ZipArchive, ZipWriter};
 
+use crate::xlsx::civil_from_days;
 use crate::{Error, Result};
 
 /// An archive being written; [`finish`](Self::finish) writes its directory.
@@ -129,9 +130,10 @@ fn dos_time(time: Option<SystemTime>) -> DateTime {
         return DateTime::default();
     };
     let days = i64::try_from(seconds / 86_400).unwrap_or(i64::MAX);
-    let (year, month, day) = civil(days);
+    let (year, month, day) = civil_from_days(days);
     let clock = seconds % 86_400;
     let part = |value: u64| u8::try_from(value).unwrap_or(0);
+    let (month, day) = (u8::try_from(month).unwrap_or(1), u8::try_from(day).unwrap_or(1));
     u16::try_from(year)
         .ok()
         .and_then(|year| {
@@ -146,21 +148,6 @@ fn dos_time(time: Option<SystemTime>) -> DateTime {
             .ok()
         })
         .unwrap_or_default()
-}
-
-/// Days since 1970-01-01 as a proleptic Gregorian date (Howard Hinnant's
-/// `civil_from_days`).
-fn civil(days: i64) -> (i64, u8, u8) {
-    let days = days + 719_468;
-    let era = days.div_euclid(146_097);
-    let of_era = days.rem_euclid(146_097);
-    let year_of_era = (of_era - of_era / 1460 + of_era / 36_524 - of_era / 146_096) / 365;
-    let of_year = of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted = (5 * of_year + 2) / 153;
-    let day = u8::try_from(of_year - (153 * shifted + 2) / 5 + 1).unwrap_or(1);
-    let month = u8::try_from(if shifted < 10 { shifted + 3 } else { shifted - 9 }).unwrap_or(1);
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    (year, month, day)
 }
 
 /// What the archive's directory says of an entry.

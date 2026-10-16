@@ -73,11 +73,9 @@ fn reads_within_limits() {
 
 #[test]
 fn dates_entries_in_utc() {
-    const CASES: &[(u64, (i64, u8, u8))] =
-        &[(0, (1970, 1, 1)), (951_782_400, (2000, 2, 29)), (1_678_872_600, (2023, 3, 15))];
-    for &(seconds, date) in CASES {
-        assert_eq!(civil(i64::try_from(seconds / 86_400).unwrap()), date, "{seconds}");
-    }
+    let at = |seconds| dos_time(Some(UNIX_EPOCH + std::time::Duration::from_secs(seconds)));
+    assert_eq!(at(951_782_400), DateTime::from_date_and_time(2000, 2, 29, 0, 0, 0).unwrap());
+    assert_eq!(at(1_678_872_600), DateTime::from_date_and_time(2023, 3, 15, 9, 30, 0).unwrap());
     assert_eq!(dos_time(Some(UNIX_EPOCH)), DateTime::default(), "before 1980: the format's epoch");
     assert_eq!(dos_time(None), DateTime::default());
 }
