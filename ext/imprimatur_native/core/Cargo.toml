@@ -20,7 +20,7 @@ aes = "0.9.3"
 crc32fast = "1.5.2"
 md-5 = "0.11.0"
 miniz_oxide = "0.9.1"
-read-fonts = "0.45.1"
+read-fonts = { version = "0.45.1", optional = true }
 serde_json = { version = "1.0.154", optional = true }
 sha2 = "0.11.1"
 thiserror = "2.0.21"
@@ -33,6 +33,9 @@ json = ["dep:serde_json"]
 # `archive`: zip archives of any files (written with their times and
 # comments, ZIP64 when large; read within limits), through the `zip` crate.
 archive = ["dep:zip"]
+# `font`: static TrueType font data (glyphs, advances, line metrics),
+# through `read-fonts`.
+fonts = ["dep:read-fonts"]
 
 [dev-dependencies]
 font-test-data = "0.10.0"

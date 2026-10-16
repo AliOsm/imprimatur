@@ -23,6 +23,7 @@ pub mod archive;
 pub mod doc;
 mod docx;
 mod error;
+#[cfg(feature = "fonts")]
 pub mod font;
 mod opc;
 mod pdf;

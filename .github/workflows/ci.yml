@@ -25,7 +25,7 @@ jobs:
       - uses: seuros/dictator-setup@v1
       - run: dictator lint .
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   core:
     name: Core library
