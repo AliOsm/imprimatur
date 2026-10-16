@@ -24,7 +24,8 @@ class ZipTest < Minitest::Test
       assert_equal path, written
       if system('which unzip', out: File::NULL)
         assert system('unzip', '-tq', path, out: File::NULL), 'unzip reads it'
-        assert_match(/03-15-2023 09:30|2023-03-15 09:30/, `unzip -l #{path}`, 'the file keeps its time')
+        # Info-ZIP prints 03-15-2023, BSD unzip (libarchive) 03-15-23
+        assert_match(/03-15-(?:20)?23 09:30|2023-03-15 09:30/, `unzip -l #{path}`, 'the file keeps its time')
       end
 
       Imprimatur::Zip.open(path) do |zip|
