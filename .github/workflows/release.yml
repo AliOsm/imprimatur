@@ -1,8 +1,8 @@
 name: Release gems
 
 # Builds the source gem and one precompiled gem per supported platform for a
-# release tag, installs each in a clean environment (the platform gems without
-# a toolchain), and attaches them to the GitHub release. release-please calls
+# release tag, installs each platform gem in a clean environment without a
+# toolchain, and attaches them all to the GitHub release. release-please calls
 # it when a release is created; run it by hand to rebuild a release's gems.
 # `rake gems:pull_all gems:push_all` publishes them.
 on:
@@ -34,12 +34,7 @@ jobs:
         with:
           ruby-version: "4.0"
           bundler-cache: true
-      - uses: dtolnay/rust-toolchain@1.99
-      - run: mkdir -p pkg && gem build imprimatur.gemspec --output "pkg/imprimatur-$(ruby -Ilib -rimprimatur/version -e 'print Imprimatur::VERSION').gem"
-      - name: Compiles on install and loads
-        run: |
-          gem install --local --no-document pkg/imprimatur-*.gem
-          cd /tmp && ruby -rimprimatur -e 'Imprimatur.xlsx { it.sheet(%q(ok)).row(1) }'
+      - run: bundle exec rake build
       - uses: actions/upload-artifact@v7
         with:
           name: gem-source
