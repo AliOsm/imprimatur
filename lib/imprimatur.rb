@@ -9,6 +9,7 @@ require_relative 'imprimatur/validation'
 require_relative 'imprimatur/xlsx'
 require_relative 'imprimatur/document'
 require_relative 'imprimatur/reader'
+require_relative 'imprimatur/spreadsheet'
 require_relative 'imprimatur/zip'
 
 # Document authoring with a native core: XLSX workbooks, and PDF and DOCX from
@@ -89,6 +90,13 @@ module Imprimatur
     #
     # @return [Hash] with symbol keys; +:format+ is +"pdf"+, +"xlsx"+ or +"docx"+
     def content(document, ...) = Reader.content(document, ...)
+
+    # A workbook's sheets and their values, read from the same documents
+    # {.markdown} takes (+.xlsx+, +.xls+, +.ods+); see {Spreadsheet}.
+    #
+    # @return [Spreadsheet]
+    # @raise [UnsupportedDocument] a PDF, a Word document or another format
+    def spreadsheet(document, ...) = Spreadsheet.open(document, ...)
 
     # A document's images, as files: a PDF's, once each, from the first page
     # that draws them (JPEG and JPEG 2000 as stored, fax scans as TIFF, raw

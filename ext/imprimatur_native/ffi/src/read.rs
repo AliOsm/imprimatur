@@ -17,7 +17,7 @@ use crate::blocking::MAX_ATTEMPTS;
 use crate::{argument_error, domain_error};
 
 /// A read of a document's bytes within limits, run without the GVL.
-type Job<T> = fn(&[u8], &Limits) -> imprimatur::Result<T>;
+pub type Job<T> = fn(&[u8], &Limits) -> imprimatur::Result<T>;
 
 /// What crosses into the thread without the GVL, and comes back.
 struct Read<T> {
@@ -107,7 +107,7 @@ fn limits(
 }
 
 /// Runs `job` on the document's bytes on this thread, the GVL released.
-fn without_gvl<T>(
+pub fn without_gvl<T>(
     ruby: &Ruby,
     document: RString,
     keywords: (Option<usize>, Option<u64>, Option<f64>),

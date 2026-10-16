@@ -301,6 +301,29 @@ Imprimatur.images("scan.pdf") do |image|
 end
 ```
 
+### Workbooks as rows
+
+For importing uploads, `Imprimatur.spreadsheet` reads an `.xlsx`, `.xls` or
+`.ods` into rows of Ruby values: Strings, Integers for whole numbers shown
+without a decimal point or a percent sign, Floats, `true`/`false`, Dates,
+DateTimes for a time of day, and `nil` for an empty cell or a formula never
+computed.
+
+```ruby
+book = Imprimatur.spreadsheet(upload.download)   # a path, the bytes or an IO
+book.names                                      # => ["Suppliers", "Countries"]
+book.sheet.rows.first                           # => ["Instructions: one a row"]
+
+book.sheet("Suppliers").parse(clean: true, name: "Company Name", since: "Since")
+# => [{ name: "Acme", since: #<Date: 2024-03-15> }, ...]
+```
+
+`parse` finds the header row among the first 100 (`header_rows:`), the first
+holding every header, and maps the rows under it. `clean: true` strips control
+characters and the whitespace at both ends of every String. Without such a row
+it raises `Imprimatur::HeaderRowNotFound`, whose `missing` lists the headers the
+closest row lacks.
+
 ## Zip archives
 
 Archives of any files, for what is not a document (an export of an order's

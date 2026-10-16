@@ -90,6 +90,12 @@ impl DateTime {
         Self { hour: 0, minute: 0, second: 0, nanosecond: 0, ..self }
     }
 
+    /// Year, month and day.
+    #[must_use]
+    pub const fn year_month_day(&self) -> (u16, u8, u8) {
+        (self.year, self.month, self.day)
+    }
+
     /// Hours, minutes and seconds.
     #[must_use]
     pub const fn time_of_day(&self) -> (u8, u8, u8) {
