@@ -23,6 +23,7 @@ pub mod archive;
 pub mod doc;
 mod docx;
 mod error;
+pub mod font;
 mod opc;
 mod pdf;
 pub mod read;
