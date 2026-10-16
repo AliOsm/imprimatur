@@ -22,11 +22,11 @@ pub const EXIT_STATUS: &str = "Exit status:
 1: a document is damaged, or a file could not be read or written
 2: the command line is wrong
 3: a PDF has no text layer: its pages are scans, which need OCR
-4: a PDF is encrypted with a password
-5: not a PDF, XLSX or DOCX (legacy .xls and .doc, .xlsb, presentations)
+4: a PDF or .xls is encrypted with a password
+5: not a PDF, XLSX, XLS, ODS or DOCX (legacy .doc, .xlsb, presentations)
 6: a limit was hit: size, decompressed size, nesting or time";
 
-/// Read PDF, XLSX and DOCX documents: as Markdown or JSON, searched, or their images
+/// Read PDF, XLSX, XLS, ODS and DOCX documents: as Markdown or JSON, searched, or their images
 ///
 /// The format is told by a document's content, not its name. Documents are
 /// untrusted input: reading is bounded in size, decompressed size, nesting
@@ -45,8 +45,8 @@ pub const EXIT_STATUS: &str = "Exit status:
     exit_code(1, "a document is damaged, or a file could not be read or written"),
     exit_code(2, "the command line is wrong"),
     exit_code(3, "a PDF has no text layer: its pages are scans, which need OCR"),
-    exit_code(4, "a PDF is encrypted with a password"),
-    exit_code(5, "not a PDF, XLSX or DOCX: legacy .xls and .doc, .xlsb, presentations"),
+    exit_code(4, "a PDF or .xls is encrypted with a password"),
+    exit_code(5, "not a PDF, XLSX, XLS, ODS or DOCX: legacy .doc, .xlsb, presentations"),
     exit_code(6, "a limit was hit: size, decompressed size, nesting or time"),
     after_long_help = EXIT_STATUS
 )]

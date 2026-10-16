@@ -86,11 +86,6 @@ impl<'a> Package<'a> {
         self.text(&part.target)?.map_or_else(|| Ok(T::default()), |text| parse(&text))
     }
 
-    /// The parts' names.
-    pub fn parts(&self) -> impl Iterator<Item = &'a str> + '_ {
-        self.zip.names()
-    }
-
     /// A part's bytes, `None` when the package has no such part.
     pub fn part(&self, name: &str) -> Result<Option<Vec<u8>>> {
         self.zip.read(name, self.budget)

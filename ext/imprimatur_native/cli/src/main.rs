@@ -1,4 +1,4 @@
-//! `imprimatur`: documents in, Markdown out. Reads PDF, XLSX and DOCX with
+//! `imprimatur`: documents in, Markdown out. Reads PDF, XLSX, XLS, ODS and DOCX with
 //! the imprimatur crate; see `imprimatur --help`.
 
 mod app;

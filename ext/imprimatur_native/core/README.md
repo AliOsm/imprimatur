@@ -56,7 +56,7 @@ text over 32,767 characters, formulas over 8,192, NaN and infinity, font
 sizes Excel cannot set, inline validation lists over 255 characters, and
 validations whose ranges overlap. A rejected row writes nothing.
 
-Reading goes the other way, any PDF, XLSX or DOCX to Markdown, within
+Reading goes the other way, any PDF, XLSX, XLS, ODS or DOCX to Markdown, within
 limits (input size, decompressed size, nesting, time, a cancel flag):
 
 ```rust

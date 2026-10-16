@@ -14,7 +14,7 @@ module Imprimatur
   module Reader
     # File signatures a document's bytes start with; a String that starts
     # with neither is taken for a path.
-    SIGNATURES = ["%PDF-".b, "PK\x03\x04".b, "PK\x05\x06".b].freeze
+    SIGNATURES = ["%PDF-".b, "PK\x03\x04".b, "PK\x05\x06".b, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1".b].freeze
     private_constant :SIGNATURES
 
     # @see Imprimatur.markdown

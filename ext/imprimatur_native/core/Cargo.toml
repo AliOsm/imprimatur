@@ -1,7 +1,7 @@
 [package]
 name = "imprimatur"
 version = "0.1.0"
-description = "XLSX, PDF and DOCX authoring with its own XML, zip and PDF writers."
+description = "XLSX, PDF and DOCX authoring, and PDF, XLSX, XLS, ODS and DOCX reading, with its own XML, zip and PDF code."
 keywords = ["xlsx", "excel", "pdf", "docx", "spreadsheet"]
 categories = ["encoding", "text-processing"]
 readme = "README.md"

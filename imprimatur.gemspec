@@ -12,9 +12,10 @@ Gem::Specification.new do |spec|
   spec.authors = ['Abdelkader Boudih']
   spec.email = ['terminale@gmail.com']
 
-  spec.summary = 'XLSX, PDF and DOCX authoring with a Ruby DSL. Let it be printed.'
+  spec.summary = 'XLSX, PDF and DOCX authoring, and office documents read back. Let it be printed.'
   spec.description = 'A Ruby DSL over a native core that writes Excel workbooks, and PDF and Word documents ' \
                      'from one model, with its own XML, zip and PDF writers: no third-party format stack. ' \
+                     'It reads PDF, XLSX, XLS, ODS and DOCX back: as Markdown, as typed structure, and their images. ' \
                      'Precompiled for Linux, macOS and FreeBSD; CRuby only.'
   spec.homepage = 'https://github.com/seuros/imprimatur'
   spec.license = 'BSD-3-Clause'

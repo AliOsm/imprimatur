@@ -97,7 +97,7 @@ pub enum Error {
     #[error("the PDF has no text layer: its pages are images, which need OCR")]
     NoTextLayer,
 
-    #[error("the PDF is encrypted with a password")]
+    #[error("the document is encrypted with a password")]
     PasswordRequired,
 
     #[error(transparent)]

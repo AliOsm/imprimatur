@@ -130,6 +130,9 @@ class ReaderTest < Minitest::Test
     assert_raises(Imprimatur::NoTextLayer) { Imprimatur.markdown(scanned) }
     assert_raises(Imprimatur::UnsupportedDocument) { Imprimatur.markdown("\0\0 not a document".b) }
     damaged = assert_raises(Imprimatur::Error) { Imprimatur.markdown("PK\x03\x04 truncated".b) }
+    legacy = assert_raises(Imprimatur::Error) { Imprimatur.markdown("\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1 cut".b) }
+
+    assert_match(/compound file/, legacy.message, 'compound file bytes are a document, not a path')
 
     assert_match(/malformed zip/, damaged.message)
     assert_raises(Imprimatur::LimitExceeded) { Imprimatur.markdown(workbook, max_bytes: 10) }

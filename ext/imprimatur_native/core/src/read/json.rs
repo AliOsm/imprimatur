@@ -18,7 +18,9 @@ pub fn content(content: &Content) -> Map<String, Json> {
     object.insert("format".into(), content.format().as_str().into());
     match content {
         Content::Pdf(pages) => object.insert("pages".into(), pages.iter().map(page).collect()),
-        Content::Xlsx(sheets) => object.insert("sheets".into(), sheets.iter().map(sheet).collect()),
+        Content::Xlsx(sheets) | Content::Ods(sheets) | Content::Xls(sheets) => {
+            object.insert("sheets".into(), sheets.iter().map(sheet).collect())
+        }
         Content::Docx(blocks) => object.insert("blocks".into(), blocks.iter().map(block).collect()),
     };
     object

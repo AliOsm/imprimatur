@@ -9,11 +9,12 @@ module Imprimatur
   # A PDF without a text layer: its pages are images (scans), which need OCR.
   class NoTextLayer < Error; end
 
-  # A PDF encrypted with a user password; only an empty one is tried.
+  # A PDF encrypted with a user password (only an empty one is tried), or
+  # an encrypted legacy +.xls+.
   class PasswordRequired < Error; end
 
-  # A format {Imprimatur.markdown} does not read: legacy +.xls+ and +.doc+,
-  # binary +.xlsb+, presentations, anything not a PDF, XLSX or DOCX.
+  # A format {Imprimatur.markdown} does not read: legacy +.doc+, binary
+  # +.xlsb+, presentations, anything not a PDF, XLSX, XLS, ODS or DOCX.
   class UnsupportedDocument < Error; end
 
   # The read hit one of its limits (size, decompressed size, nesting, time),

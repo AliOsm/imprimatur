@@ -127,7 +127,7 @@ fn lines<'c>(content: &'c Content, mut each: impl FnMut(Location<'c>, &str) -> b
                 }
             }
         }
-        Content::Xlsx(sheets) => {
+        Content::Xlsx(sheets) | Content::Ods(sheets) | Content::Xls(sheets) => {
             for sheet in sheets {
                 for cell in sheet.cells.cells() {
                     let reference = cell.reference();

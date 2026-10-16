@@ -197,8 +197,8 @@ PDF, are the next step.
 
 ## Reading: documents as Markdown
 
-The other direction: a PDF, XLSX or DOCX printed as Markdown, for search
-indexes and language models.
+The other direction: a PDF, a workbook (XLSX, legacy XLS, ODS) or a DOCX
+printed as Markdown, for search indexes and language models.
 
 ```ruby
 Imprimatur.markdown("audit.pdf")              # a path
@@ -215,8 +215,8 @@ end
 - **PDF**: the text layer, placed glyph by glyph (fonts, encodings and
   ToUnicode maps, forms, rotated pages), in reading order (right-to-left
   lines too: Hebrew, Arabic, Persian, Urdu, Syriac, Dhivehi, N'Ko, Adlam,
-  their vowel marks kept on their letters), with headings by font size, hyphenated line breaks rejoined,
-  presentation forms (`ﬁ`, Arabic contextual forms) as plain letters, and
+  their vowel marks kept on their letters), with headings by font size,
+  hyphenated line breaks rejoined, presentation forms (`ﬁ`, Arabic contextual forms) as plain letters, and
   running headers and footers left out. Pages after the first start with
   `<!-- page N -->`. Encrypted PDFs open when the user password is empty, as
   it is for documents that only restrict printing or copying (RC4, AES-128,
@@ -224,6 +224,9 @@ end
 - **XLSX**: each sheet as a table under its name, values as Excel shows them
   (dates as dates, percentages, 15 significant digits), formulas without a
   cached result as `=FORMULA`, then the sheet's comments.
+- **XLS** (Excel 97–2003, and Excel 5.0/95 in Western European code pages)
+  and **ODS** (LibreOffice, OpenOffice): the same, sheet by sheet; an ODS
+  number keeps the text it shows. Legacy `.xls` comments are left out.
 - **DOCX**: headings (from styles and outline levels), bulleted and numbered
   lists, bold, italic, links, tables, text boxes; deleted text and field
   codes left out.
@@ -237,7 +240,7 @@ Documents are untrusted input, so reads are bounded: `max_bytes:` (512 MiB),
 `Imprimatur::LimitExceeded`. Reading runs without the GVL: other threads and
 fibers keep running, and `Timeout` or `Thread#raise` cancels it.
 `Imprimatur::PasswordRequired` and `Imprimatur::UnsupportedDocument` (legacy
-`.xls` and `.doc`, `.xlsb`, presentations) are the other errors to expect.
+`.doc`, `.xlsb`, presentations) are the other errors to expect.
 
 ### Structure and images
 

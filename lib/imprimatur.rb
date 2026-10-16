@@ -46,7 +46,7 @@ module Imprimatur
     # As {.pdf}, rendered as DOCX.
     def docx(path = nil, **options, &) = Document.build(:docx, path, **options, &)
 
-    # A PDF, XLSX or DOCX as Markdown: a PDF's text layer (headings by font
+    # A PDF, workbook (XLSX, XLS, ODS) or DOCX as Markdown: a PDF's text layer (headings by font
     # size, running headers and footers left out, pages marked with
     # +<!-- page N -->+), each sheet of a workbook as a table, a Word
     # document's headings, lists, emphasis, links and tables. The format is
@@ -67,7 +67,7 @@ module Imprimatur
     # @return [String] Markdown, UTF-8
     # @raise [NoTextLayer] a PDF of scanned pages: run OCR instead
     # @raise [PasswordRequired] a PDF that needs a password to open
-    # @raise [UnsupportedDocument] not a PDF, XLSX or DOCX
+    # @raise [UnsupportedDocument] not a PDF, XLSX, XLS, ODS or DOCX
     # @raise [LimitExceeded] the document is too large, too deep or too slow
     # @raise [Error] a damaged document
     def markdown(document, ...) = Reader.markdown(document, ...)

@@ -1,6 +1,6 @@
 # imprimatur-cli
 
-`imprimatur`: PDF, XLSX and DOCX documents from the command line: as
+`imprimatur`: PDF, XLSX, XLS, ODS and DOCX documents from the command line: as
 Markdown or JSON, searched, or their images. The reader is the
 [imprimatur](../core/README.md) crate's: no Python, no Poppler, one static
 binary.
@@ -66,8 +66,8 @@ exit status is the first failure's, so scripts can branch on it:
 | 1 | a document is damaged, or a file could not be read or written |
 | 2 | the command line is wrong |
 | 3 | a PDF has no text layer: its pages are scans, which need OCR |
-| 4 | a PDF is encrypted with a password |
-| 5 | not a PDF, XLSX or DOCX |
+| 4 | a PDF or `.xls` is encrypted with a password |
+| 5 | not a PDF, XLSX, XLS, ODS or DOCX |
 | 6 | a limit was hit: size, decompressed size, nesting or time |
 
 With `--json`, failures are reported in the JSON too (`"ok": false`, `"error":

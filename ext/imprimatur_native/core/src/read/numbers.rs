@@ -1,5 +1,6 @@
-//! How XLSX number formats show numbers: which formats are dates, times
-//! or percentages, and Excel's General format.
+//! How spreadsheet number formats show numbers: which formats are dates,
+//! times or percentages, and Excel's General format. XLSX and XLS share
+//! Excel's format codes and built-in formats.
 
 use std::fmt::Write as _;
 
@@ -50,7 +51,7 @@ pub fn styles(text: &str, budget: &Budget<'_>) -> Result<Vec<Shown>> {
 
 /// Excel's built-in number formats (ECMA-376 Part 1, 18.8.30), with the
 /// East Asian date formats.
-const fn built_in(id: u32) -> Shown {
+pub const fn built_in(id: u32) -> Shown {
     match id {
         9 | 10 => Shown::Percent,
         14..=17 | 27..=31 | 34..=36 | 50..=58 => Shown::Date,

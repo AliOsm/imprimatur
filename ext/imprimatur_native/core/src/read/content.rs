@@ -13,13 +13,17 @@ use super::span;
 use crate::xlsx::push_cell_reference;
 use crate::xlsx::{DateTime, cell_reference};
 
-/// A document's content, by format.
+/// A document's content, by format. Every workbook format holds sheets.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Content {
     Pdf(Vec<Page>),
     Xlsx(Vec<Sheet>),
     Docx(Vec<Block>),
+    /// An `.ods` spreadsheet.
+    Ods(Vec<Sheet>),
+    /// A legacy Excel workbook (Excel 97 to 2003).
+    Xls(Vec<Sheet>),
 }
 
 impl Content {
@@ -30,6 +34,17 @@ impl Content {
             Self::Pdf(_) => super::Format::Pdf,
             Self::Xlsx(_) => super::Format::Xlsx,
             Self::Docx(_) => super::Format::Docx,
+            Self::Ods(_) => super::Format::Ods,
+            Self::Xls(_) => super::Format::Xls,
+        }
+    }
+
+    /// A workbook's sheets, whatever its format; `None` for documents.
+    #[must_use]
+    pub fn sheets(&self) -> Option<&[Sheet]> {
+        match self {
+            Self::Xlsx(sheets) | Self::Ods(sheets) | Self::Xls(sheets) => Some(sheets),
+            Self::Pdf(_) | Self::Docx(_) => None,
         }
     }
 }

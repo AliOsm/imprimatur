@@ -23,7 +23,7 @@ impl Content {
         let mut out = String::new();
         match self {
             Self::Pdf(pages) => pdf(&mut out, pages),
-            Self::Xlsx(sheets) => {
+            Self::Xlsx(sheets) | Self::Ods(sheets) | Self::Xls(sheets) => {
                 for sheet in sheets {
                     write_sheet(&mut out, sheet);
                 }

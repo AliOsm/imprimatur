@@ -3,7 +3,6 @@
 //! digits), formulas without a cached result as `=FORMULA`, then the sheet's
 //! comments.
 
-mod numbers;
 #[cfg(test)]
 mod tests;
 
@@ -11,12 +10,12 @@ use std::sync::Arc;
 
 use super::Budget;
 use super::content::{Grid, Note, Sheet, Value};
+use super::numbers::{Shown, push_number, styles};
 use super::package::Package;
 use crate::Result;
 use crate::xlsx::parse_cell_reference;
 use crate::xlsx::text::unescape as unescape_xstring;
 use crate::xml::reader::{Event, XmlReader};
-use numbers::{Shown, push_number, styles};
 
 /// A cell's `t` attribute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

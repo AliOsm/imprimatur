@@ -161,3 +161,90 @@ pub fn tiff_of(data: &[u8]) -> (std::collections::BTreeMap<u16, u32>, &[u8]) {
     let (offset, length) = (tags[&273] as usize, tags[&279] as usize);
     (tags, &data[offset..offset + length])
 }
+
+/// A compound file (MS-CFB, version 3) holding one stream named `name` in
+/// its root storage; a stream under 4096 bytes goes to the mini stream, as
+/// writers put it.
+pub fn ole_of(name: &str, stream: &[u8]) -> Vec<u8> {
+    const SECTOR: usize = 512;
+    const END: u32 = 0xFFFF_FFFE;
+    let small = stream.len() < 4096;
+    let pad = |data: &[u8], size: usize| {
+        let mut data = data.to_vec();
+        data.resize(data.len().div_ceil(size).max(1) * size, 0);
+        data
+    };
+    // Sectors: FAT, directory, mini FAT (when small), then the data: the
+    // stream itself, or the mini stream holding it.
+    let data = if small { pad(stream, 64) } else { stream.to_vec() };
+    let data_sectors = data.len().div_ceil(SECTOR).max(1);
+    let first_data = if small { 3 } else { 2 };
+    let mut fat = vec![0xFFFF_FFFD_u32, END];
+    if small {
+        fat.push(END);
+    }
+    fat.extend((0..data_sectors).map(|index| {
+        if index + 1 == data_sectors { END } else { u32::try_from(first_data + index + 1).unwrap() }
+    }));
+    fat.resize(SECTOR / 4, 0xFFFF_FFFF);
+    let mut header = vec![0_u8; SECTOR];
+    header[..8].copy_from_slice(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]);
+    let put = |bytes: &mut Vec<u8>, at: usize, value: u32| {
+        bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    };
+    header[0x18..0x1A].copy_from_slice(&0x3E_u16.to_le_bytes());
+    header[0x1A..0x1C].copy_from_slice(&3_u16.to_le_bytes());
+    header[0x1C..0x1E].copy_from_slice(&0xFFFE_u16.to_le_bytes());
+    header[0x1E..0x20].copy_from_slice(&9_u16.to_le_bytes());
+    header[0x20..0x22].copy_from_slice(&6_u16.to_le_bytes());
+    put(&mut header, 0x2C, 1);
+    put(&mut header, 0x30, 1);
+    put(&mut header, 0x38, 4096);
+    put(&mut header, 0x3C, if small { 2 } else { END });
+    put(&mut header, 0x40, u32::from(small));
+    put(&mut header, 0x44, END);
+    put(&mut header, 0x4C, 0);
+    for index in 1..109 {
+        put(&mut header, 0x4C + index * 4, 0xFFFF_FFFF);
+    }
+    let entry = |name: &str, kind: u8, child: u32, start: u32, size: usize| {
+        let mut bytes = vec![0_u8; 128];
+        let units: Vec<u16> = name.encode_utf16().collect();
+        for (index, unit) in units.iter().enumerate() {
+            bytes[index * 2..index * 2 + 2].copy_from_slice(&unit.to_le_bytes());
+        }
+        bytes[0x40..0x42]
+            .copy_from_slice(&u16::try_from(units.len() * 2 + 2).unwrap().to_le_bytes());
+        bytes[0x42] = kind;
+        for at in [0x44, 0x48, 0x4C] {
+            put(&mut bytes, at, 0xFFFF_FFFF);
+        }
+        put(&mut bytes, 0x4C, child);
+        put(&mut bytes, 0x74, start);
+        put(&mut bytes, 0x78, u32::try_from(size).unwrap());
+        bytes
+    };
+    let first = u32::try_from(first_data).unwrap();
+    let mut directory = if small {
+        let mut directory = entry("Root Entry", 5, 1, first, data.len());
+        directory.extend(entry(name, 2, 0xFFFF_FFFF, 0, stream.len()));
+        directory
+    } else {
+        let mut directory = entry("Root Entry", 5, 1, END, 0);
+        directory.extend(entry(name, 2, 0xFFFF_FFFF, first, stream.len()));
+        directory
+    };
+    directory.resize(SECTOR, 0);
+    let mut file = header;
+    file.extend(fat.iter().flat_map(|word| word.to_le_bytes()));
+    file.extend(directory);
+    if small {
+        let mut mini_fat: Vec<u32> =
+            (1..data.len() / 64).map(|next| u32::try_from(next).unwrap()).collect();
+        mini_fat.push(END);
+        mini_fat.resize(SECTOR / 4, 0xFFFF_FFFF);
+        file.extend(mini_fat.iter().flat_map(|word| word.to_le_bytes()));
+    }
+    file.extend(pad(&data, SECTOR));
+    file
+}
