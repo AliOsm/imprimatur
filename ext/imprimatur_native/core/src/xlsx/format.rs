@@ -132,7 +132,7 @@ impl Format {
         if length == 0 || length > MAX_FONT_NAME || name.chars().any(char::is_control) {
             return Err(Error::InvalidFontName(name));
         }
-        self.font.name = (name != DEFAULT_FONT).then_some(name);
+        self.font.name = Some(name);
         Ok(self)
     }
 
@@ -147,7 +147,7 @@ impl Format {
         #[expect(clippy::cast_possible_truncation, reason = "a whole number from 2 to 818")]
         #[expect(clippy::cast_sign_loss, reason = "a whole number from 2 to 818")]
         let half_points = half_points as u16;
-        self.font.half_points = (half_points != DEFAULT_HALF_POINTS).then_some(half_points);
+        self.font.half_points = Some(half_points);
         Ok(self)
     }
 
@@ -213,13 +213,29 @@ pub struct Font {
 }
 
 impl Font {
-    pub(crate) fn name(&self) -> &str {
-        self.name.as_deref().unwrap_or(DEFAULT_FONT)
+    /// No name or size of its own: the workbook's, Calibri 11 by default.
+    pub(crate) const BASE: Self = Self {
+        bold: false,
+        italic: false,
+        underline: false,
+        color: None,
+        name: None,
+        half_points: None,
+    };
+
+    /// Its name, or else the workbook's `base` one.
+    pub(crate) fn name<'a>(&'a self, base: &'a Self) -> &'a str {
+        self.name.as_deref().or(base.name.as_deref()).unwrap_or(DEFAULT_FONT)
+    }
+
+    /// Its size in half points, or else the workbook's `base` one.
+    pub(crate) fn half_points(&self, base: &Self) -> u16 {
+        self.half_points.or(base.half_points).unwrap_or(DEFAULT_HALF_POINTS)
     }
 
     /// The size in points as `<sz>` writes it: `11`, `10.5`.
-    pub(crate) fn size(&self) -> String {
-        let half_points = self.half_points.unwrap_or(DEFAULT_HALF_POINTS);
+    pub(crate) fn size(&self, base: &Self) -> String {
+        let half_points = self.half_points(base);
         let whole = half_points / 2;
         if half_points.is_multiple_of(2) { whole.to_string() } else { format!("{whole}.5") }
     }

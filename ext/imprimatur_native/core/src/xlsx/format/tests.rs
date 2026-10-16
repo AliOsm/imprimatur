@@ -26,11 +26,18 @@ fn validates_number_formats() {
 
 #[test]
 fn validates_fonts() {
+    let base = Font::BASE;
     let format = Format::new().font_name("Arial").unwrap().font_size(10.5).unwrap();
-    assert_eq!((format.font.name(), format.font.size().as_str()), ("Arial", "10.5"));
-    let defaults = Format::new().font_name("Calibri").unwrap().font_size(11.0).unwrap();
-    assert_eq!(defaults, Format::new(), "naming the default font is no change");
-    assert_eq!(Format::new().font_size(409.0).unwrap().font.size(), "409");
+    assert_eq!((format.font.name(&base), format.font.size(&base).as_str()), ("Arial", "10.5"));
+    assert_eq!(Format::new().font_size(409.0).unwrap().font.size(&base), "409");
+    // Named, the default font still wins over a workbook's own.
+    let arial = Font { name: Some("Arial".to_owned()), half_points: Some(20), ..Font::BASE };
+    let calibri = Format::new().font_name("Calibri").unwrap().font_size(11.0).unwrap();
+    assert_eq!((calibri.font.name(&arial), calibri.font.size(&arial).as_str()), ("Calibri", "11"));
+    assert_eq!(
+        (Format::new().font.name(&arial), Format::new().font.size(&arial).as_str()),
+        ("Arial", "10")
+    );
 
     for size in [0.5, 409.5, 10.25, f64::NAN, f64::INFINITY] {
         assert_matches!(Format::new().font_size(size), Err(Error::InvalidFontSize(_)), "{size}");

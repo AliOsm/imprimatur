@@ -6,7 +6,7 @@ fn stylesheet(build: impl FnOnce(&mut Workbook)) -> (String, Vec<Vec<u32>>) {
     build(&mut book);
     let mut styles = Stylesheet::default();
     let remaps = book.sheets().iter().map(|sheet| styles.add_sheet(sheet).unwrap()).collect();
-    (styles.to_xml(), remaps)
+    (styles.to_xml(&Font::BASE), remaps)
 }
 
 #[test]
@@ -106,4 +106,24 @@ fn writes_font_names_sizes_and_vertical_alignment() {
     assert!(xml.contains(r#"<font><b/><sz val="10"/><name val="Arial"/></font>"#), "{xml}");
     assert!(xml.contains(r#"<font><sz val="12.5"/><name val="Calibri"/><family val="2"/>"#));
     assert!(xml.contains(r#"<alignment horizontal="center" vertical="center"/>"#), "{xml}");
+}
+
+#[test]
+fn fonts_without_a_name_or_size_take_the_workbook_ones() {
+    let mut book = Workbook::new();
+    book.set_font_name("Arial").unwrap().set_font_size(10.0).unwrap();
+    let sheet = book.add_sheet("Fonts").unwrap();
+    sheet.append_row_with_format(["bold"], &Format::new().bold()).unwrap();
+    sheet.append_row_with_format(["named"], &Format::new().font_name("Calibri").unwrap()).unwrap();
+    let mut styles = Stylesheet::default();
+    styles.add_sheet(&book.sheets()[0]).unwrap();
+    let base = Font { name: Some("Arial".to_owned()), half_points: Some(20), ..Font::BASE };
+    let xml = styles.to_xml(&base);
+    for expected in [
+        r#"<fonts count="3"><font><sz val="10"/><name val="Arial"/></font>"#,
+        r#"<font><b/><sz val="10"/><name val="Arial"/></font>"#,
+        r#"<font><sz val="10"/><name val="Calibri"/><family val="2"/></font>"#,
+    ] {
+        assert!(xml.contains(expected), "missing {expected}\n{xml}");
+    }
 }

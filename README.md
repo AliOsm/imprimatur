@@ -102,6 +102,21 @@ columns past its end are left unstyled:
 sheet.row "", "", "", "Notes", style: [yellow] * 3
 ```
 
+The workbook can have a font of its own, for unstyled cells and for styles
+that name no font or size, and size its columns to their cells:
+
+```ruby
+Imprimatur.xlsx("export.xlsx", font: "Arial", size: 10, autofit: true) do |book|
+  book.sheet("Orders") { it.row "Supplier", "Amount", style: header }
+  book.sheet("Notes").autofit!(false)          # this one keeps Excel's widths
+end
+```
+
+`autofit` (or `sheet.autofit!`) sizes each column without a width of its own
+to its widest cell, the way caxlsx did: `(characters + 3) × points / 10`,
+bold cells one and a half times wider, at most 255. A text counts its longest
+line, a date `yyyy-mm-dd`; formulas are left out, their results unknown.
+
 ## Validation and comments
 
 ```ruby

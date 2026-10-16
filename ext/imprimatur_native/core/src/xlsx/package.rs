@@ -1,10 +1,13 @@
 //! The parts of an `.xlsx` package and the relationships between them.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io::Write;
 
+use super::autofit;
 use super::cell::{Cell, cell_reference, push_cell_reference};
 use super::comment;
+use super::format::Font;
 use super::styles::Stylesheet;
 use super::text::{SharedStrings, escape, needs_preserve};
 use super::validation;
@@ -28,7 +31,9 @@ const DRAWING_ID: &str = "rId2";
 /// compressed and dropped before the next is built, so only one sheet's XML
 /// is in memory at a time; the styles and the shared string table, complete
 /// only after every sheet, follow them.
-pub fn write<W: Write>(sheets: &[Worksheet], out: W) -> Result<W> {
+/// `font` is the workbook's: unformatted cells', and the formats' with no
+/// name or size.
+pub fn write<W: Write>(sheets: &[Worksheet], font: &Font, out: W) -> Result<W> {
     if sheets.is_empty() {
         return Err(Error::EmptyWorkbook);
     }
@@ -57,7 +62,7 @@ pub fn write<W: Write>(sheets: &[Worksheet], out: W) -> Result<W> {
     for (number, sheet) in (1..).zip(sheets) {
         let remap = styles.add_sheet(sheet)?;
         set(&mut name, format_args!("xl/worksheets/sheet{number}.xml"));
-        zip.add(&name, worksheet(sheet, &remap, &mut strings).as_bytes())?;
+        zip.add(&name, worksheet(sheet, &remap, &mut strings, font).as_bytes())?;
         let comments = sheet.comments();
         if comments.is_empty() {
             continue;
@@ -74,7 +79,7 @@ pub fn write<W: Write>(sheets: &[Worksheet], out: W) -> Result<W> {
         next_block += comment::blocks_for(comments.len());
     }
     debug_assert_eq!(has_strings, !strings.is_empty(), "the text scan matches the table");
-    zip.add("xl/styles.xml", styles.to_xml().as_bytes())?;
+    zip.add("xl/styles.xml", styles.to_xml(font).as_bytes())?;
     if has_strings {
         zip.add("xl/sharedStrings.xml", strings.to_xml().as_bytes())?;
     }
@@ -137,7 +142,12 @@ fn workbook(sheets: &[Worksheet]) -> String {
 
 /// `remap` turns the sheet's own style ids into the workbook's. The cell
 /// loop formats into three scratch buffers instead of allocating per cell.
-fn worksheet<'a>(sheet: &'a Worksheet, remap: &[u32], strings: &mut SharedStrings<'a>) -> String {
+fn worksheet<'a>(
+    sheet: &'a Worksheet,
+    remap: &[u32],
+    strings: &mut SharedStrings<'a>,
+    font: &Font,
+) -> String {
     let mut xml = XmlWriter::new();
     xml.open("worksheet", &[("xmlns", MAIN_NS), ("xmlns:r", opc::RELATIONSHIPS)]);
     xml.empty("dimension", &[("ref", &dimension(sheet))]);
@@ -146,7 +156,7 @@ fn worksheet<'a>(sheet: &'a Worksheet, remap: &[u32], strings: &mut SharedString
         xml.empty("sheetView", &[("rightToLeft", "1"), ("workbookViewId", "0")]);
         xml.close("sheetViews");
     }
-    write_columns(&mut xml, sheet);
+    write_columns(&mut xml, sheet, font);
     xml.open("sheetData", &[]);
     let (mut reference, mut style, mut value) = (String::new(), String::new(), String::new());
     for (row, cells) in sheet.rows() {
@@ -216,13 +226,17 @@ fn set(buffer: &mut String, value: impl std::fmt::Display) {
 }
 
 /// `<cols>`: one `<col>` per run of adjacent columns with the same width.
-fn write_columns(xml: &mut XmlWriter, sheet: &Worksheet) {
-    let widths = sheet.column_widths();
+/// The columns' widths: those set, and for an autofit sheet those its cells
+/// need.
+fn write_columns(xml: &mut XmlWriter, sheet: &Worksheet, font: &Font) {
+    let mut widths =
+        if sheet.is_autofit() { autofit::widths(sheet, font) } else { BTreeMap::new() };
+    widths.extend(sheet.column_widths());
     if widths.is_empty() {
         return;
     }
     let mut runs: Vec<(u16, u16, f64)> = Vec::new();
-    for (&column, &width) in widths {
+    for (column, width) in widths {
         match runs.last_mut() {
             Some((_, last, run_width))
                 if *last + 1 == column && run_width.to_bits() == width.to_bits() =>

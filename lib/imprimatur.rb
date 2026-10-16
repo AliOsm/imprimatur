@@ -25,7 +25,7 @@ require_relative 'imprimatur/zip'
 module Imprimatur
   class << self
     # @see Xlsx.build
-    def xlsx(path = nil, &) = Xlsx.build(path, &)
+    def xlsx(path = nil, **, &) = Xlsx.build(path, **, &)
 
     # @param expression [String] such as +"SUM(A1:A3)"+ or +"=A1*2"+
     # @return [Formula]

@@ -41,6 +41,7 @@ pub struct Worksheet {
     /// The style of an unformatted date, then of an unformatted date and time.
     date_styles: [Option<u32>; 2],
     widths: BTreeMap<u16, f64>,
+    autofit: bool,
     /// As set; `None` to follow the sheet's text.
     right_to_left: Option<bool>,
     validations: Vec<(CellRange, Validation)>,
@@ -57,6 +58,7 @@ impl Worksheet {
             format_ids: HashMap::new(),
             date_styles: [None; 2],
             widths: BTreeMap::new(),
+            autofit: false,
             right_to_left: None,
             validations: Vec::new(),
             comments: BTreeMap::new(),
@@ -174,6 +176,19 @@ impl Worksheet {
             .ok_or(Error::InvalidColumnWidth(width))?;
         self.widths.insert(column, width);
         Ok(self)
+    }
+
+    /// Sizes the columns without a width of their own to their widest cell,
+    /// estimated from its characters and font as caxlsx does:
+    /// `(characters + 3) × points / 10`, bold one and a half times wider.
+    pub const fn set_autofit(&mut self, autofit: bool) -> &mut Self {
+        self.autofit = autofit;
+        self
+    }
+
+    #[must_use]
+    pub const fn is_autofit(&self) -> bool {
+        self.autofit
     }
 
     /// Lays the sheet out right to left, column `A` on the right, as Excel

@@ -70,7 +70,8 @@ impl Stylesheet {
         Ok(remap)
     }
 
-    pub fn to_xml(&self) -> String {
+    /// The stylesheet, fonts without a name or size of their own in `base`.
+    pub fn to_xml(&self, base: &Font) -> String {
         let mut number_formats = Table::<&str>::new(FIRST_CUSTOM_NUMBER_FORMAT);
         let mut fonts = Table::<&Font>::new(1);
         let mut fills = Table::<Color>::new(2);
@@ -101,7 +102,7 @@ impl Stylesheet {
             }
             xml.close("numFmts");
         }
-        write_fonts(&mut xml, &fonts.order);
+        write_fonts(&mut xml, &fonts.order, base);
         write_fills(&mut xml, &fills.order);
         write_borders(&mut xml, &borders.order);
         xml.open("cellStyleXfs", &[("count", "1")]);
@@ -131,24 +132,24 @@ impl Stylesheet {
     }
 }
 
-fn write_fonts(xml: &mut XmlWriter, fonts: &[&Font]) {
+/// Font 0, the one of unformatted cells, is `base`.
+fn write_fonts(xml: &mut XmlWriter, fonts: &[&Font], base: &Font) {
     let count = (fonts.len() + 1).to_string();
     xml.open("fonts", &[("count", &count)]);
-    let default = Font::default();
-    for font in std::iter::once(&default).chain(fonts.iter().copied()) {
+    for font in std::iter::once(base).chain(fonts.iter().copied()) {
         xml.open("font", &[]);
         for (on, tag) in [(font.bold, "b"), (font.italic, "i"), (font.underline, "u")] {
             if on {
                 xml.empty(tag, &[]);
             }
         }
-        xml.empty("sz", &[("val", &font.size())]);
+        xml.empty("sz", &[("val", &font.size(base))]);
         if let Some(color) = font.color {
             xml.empty("color", &[("rgb", &color.argb())]);
         }
-        xml.empty("name", &[("val", font.name())]);
+        xml.empty("name", &[("val", font.name(base))]);
         // The family is a fallback hint; only Calibri's is known (2, swiss).
-        if font.name() == DEFAULT_FONT {
+        if font.name(base) == DEFAULT_FONT {
             xml.empty("family", &[("val", "2")]);
         }
         xml.close("font");

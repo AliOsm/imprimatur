@@ -79,6 +79,21 @@ class StyleTest < Minitest::Test
     assert_includes parts['xl/sharedStrings.xml'], '<t>مرحبا</t>'
   end
 
+  def test_autofit_and_the_workbook_font
+    bytes = Imprimatur.xlsx(font: 'Arial', size: 10, autofit: true) do |book|
+      book.sheet('Fit') { it.row 'North America', 12.5 }
+      book.sheet('Plain') { it.autofit!(false).row 'North America' }
+    end
+    parts = ZipReader.entries(bytes)
+    fit = parts['xl/worksheets/sheet1.xml']
+
+    assert_includes fit, '<col min="1" max="1" width="16" customWidth="1"/>', '(13 + 3) x 10 / 10'
+    assert_includes fit, '<col min="2" max="2" width="7" customWidth="1"/>', '(4 + 3) x 10 / 10'
+    refute_includes parts['xl/worksheets/sheet2.xml'], '<cols>'
+    assert_includes parts['xl/styles.xml'], '<font><sz val="10"/><name val="Arial"/></font>'
+    assert_raises(Imprimatur::Error) { Imprimatur.xlsx(size: 0.3) { it.sheet('x') } }
+  end
+
   def test_sheets_follow_the_direction_of_their_text
     view = '<sheetView rightToLeft="1" workbookViewId="0"/>'
 

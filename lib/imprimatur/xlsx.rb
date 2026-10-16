@@ -22,10 +22,11 @@ module Imprimatur
     # Builds a workbook. With a path, saves it there and returns the path;
     # without, returns the +.xlsx+ bytes as a binary String.
     #
+    # @param options [Hash] +font:+, +size:+ and +autofit:+, as {Workbook#initialize} takes them
     # @yieldparam book [Workbook]
     # @raise [Imprimatur::Error] the workbook has no sheets, or the file cannot be written
-    def self.build(path = nil)
-      book = Workbook.new
+    def self.build(path = nil, **options)
+      book = Workbook.new(**options)
       yield book
       return book.render unless path
 
@@ -35,8 +36,15 @@ module Imprimatur
 
     # An ordered set of uniquely named sheets.
     class Workbook
-      def initialize
+      # @param font [String, nil] the font of unstyled cells and of styles that
+      #   name none; Calibri without one
+      # @param size [Numeric, nil] its size in points; 11 without one
+      # @param autofit [Boolean] every sheet sizes its columns to its cells, as
+      #   {Sheet#autofit!} does
+      # @raise [Imprimatur::Error] a font name or size Excel rejects
+      def initialize(font: nil, size: nil, autofit: false)
         @native = Native::Workbook.new
+        @native.configure(font&.to_s, size && Float(size), autofit ? true : false)
         @sheets = []
       end
 
@@ -163,6 +171,17 @@ module Imprimatur
       # @raise [Imprimatur::Error] an invalid reference or text too long
       def comment(reference, text, author: nil, visible: false)
         @native.set_comment([@index, String(reference)], String(text), author&.to_s, visible ? true : false)
+        self
+      end
+
+      # Sizes the columns without a width of their own to their widest cell
+      # when the workbook is written, as caxlsx did: +(characters + 3) x
+      # points / 10+, bold cells one and a half times wider, at most 255.
+      # Formulas are left out.
+      #
+      # @return [self]
+      def autofit!(enabled = true)
+        @native.set_autofit(@index, enabled ? true : false)
         self
       end
 

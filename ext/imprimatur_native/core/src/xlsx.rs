@@ -1,5 +1,6 @@
 //! `SpreadsheetML` (`.xlsx`) workbooks, per ECMA-376 Part 1.
 
+mod autofit;
 mod cell;
 mod comment;
 mod date;
@@ -22,6 +23,7 @@ pub(crate) use cell::push_cell_reference;
 pub use cell::{Cell, cell_reference, column_name};
 pub use comment::Comment;
 pub use date::DateTime;
+use format::Font;
 pub use format::{Border, Format, VerticalAlign};
 pub use range::{CellRange, parse_cell_reference};
 pub use validation::{Alert, Validation};
@@ -36,12 +38,44 @@ const MAX_SHEET_NAME: usize = 31;
 #[derive(Debug, Default)]
 pub struct Workbook {
     sheets: Vec<Worksheet>,
+    /// The font of unformatted cells, and of formats with no name or size.
+    font: Font,
+    /// Whether new sheets size their columns to their cells.
+    autofit: bool,
 }
 
 impl Workbook {
     #[must_use]
     pub const fn new() -> Self {
-        Self { sheets: Vec::new() }
+        Self { sheets: Vec::new(), font: Font::BASE, autofit: false }
+    }
+
+    /// The font of cells without a format, and of formats that name no font:
+    /// Calibri unless set.
+    ///
+    /// # Errors
+    /// [`Error::InvalidFontName`] for an empty name, one longer than 31
+    /// characters or with a control character.
+    pub fn set_font_name(&mut self, name: impl Into<String>) -> Result<&mut Self> {
+        self.font.name = Format::new().font_name(name)?.font.name;
+        Ok(self)
+    }
+
+    /// The size of cells without a format, and of formats that set none: 11
+    /// points unless set.
+    ///
+    /// # Errors
+    /// [`Error::InvalidFontSize`] outside 1 to 409 points in steps of 0.5.
+    pub fn set_font_size(&mut self, points: f64) -> Result<&mut Self> {
+        self.font.half_points = Format::new().font_size(points)?.font.half_points;
+        Ok(self)
+    }
+
+    /// Whether the sheets added from now on size their columns to their
+    /// cells, as [`Worksheet::set_autofit`] does.
+    pub const fn set_autofit(&mut self, autofit: bool) -> &mut Self {
+        self.autofit = autofit;
+        self
     }
 
     /// Adds a sheet after the existing ones and returns it for writing.
@@ -56,7 +90,8 @@ impl Workbook {
         if self.sheets.iter().any(|sheet| sheet.name().to_lowercase() == folded) {
             return Err(Error::DuplicateSheetName(name));
         }
-        Ok(self.sheets.push_mut(Worksheet::new(name)))
+        let autofit = self.autofit;
+        Ok(self.sheets.push_mut(Worksheet::new(name)).set_autofit(autofit))
     }
 
     #[must_use]
@@ -73,7 +108,7 @@ impl Workbook {
     /// # Errors
     /// [`Error::EmptyWorkbook`] without sheets, [`Error::Io`] when `out` fails.
     pub fn write_to<W: Write>(&self, out: W) -> Result<W> {
-        package::write(&self.sheets, out)
+        package::write(&self.sheets, &self.font, out)
     }
 
     /// The `.xlsx` package as bytes.

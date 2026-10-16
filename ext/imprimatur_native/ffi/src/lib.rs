@@ -131,6 +131,31 @@ impl NativeWorkbook {
         Ok(())
     }
 
+    /// The workbook's own font, and whether the sheets it adds autofit.
+    fn configure(
+        ruby: &Ruby,
+        rb_self: &Self,
+        font: Option<String>,
+        size: Option<f64>,
+        autofit: bool,
+    ) -> Result<(), Error> {
+        let mut book = borrow(ruby, &rb_self.0, "workbook")?;
+        if let Some(font) = font {
+            book.set_font_name(font).or_raise(ruby)?;
+        }
+        if let Some(size) = size {
+            book.set_font_size(size).or_raise(ruby)?;
+        }
+        book.set_autofit(autofit);
+        Ok(())
+    }
+
+    fn set_autofit(ruby: &Ruby, rb_self: &Self, sheet: usize, autofit: bool) -> Result<(), Error> {
+        let mut book = borrow(ruby, &rb_self.0, "workbook")?;
+        sheet_mut(ruby, &mut book, sheet)?.set_autofit(autofit);
+        Ok(())
+    }
+
     fn set_right_to_left(
         ruby: &Ruby,
         rb_self: &Self,
@@ -307,6 +332,8 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     workbook.define_method("set_column_width", method!(NativeWorkbook::set_column_width, 3))?;
     workbook.define_method("add_validation", method!(NativeWorkbook::add_validation, 3))?;
     workbook.define_method("set_comment", method!(NativeWorkbook::set_comment, 4))?;
+    workbook.define_method("configure", method!(NativeWorkbook::configure, 3))?;
+    workbook.define_method("set_autofit", method!(NativeWorkbook::set_autofit, 2))?;
     workbook.define_method("set_right_to_left", method!(NativeWorkbook::set_right_to_left, 2))?;
     workbook.define_method("next_row", method!(NativeWorkbook::next_row, 1))?;
     workbook.define_method("render", method!(NativeWorkbook::render, 0))?;
