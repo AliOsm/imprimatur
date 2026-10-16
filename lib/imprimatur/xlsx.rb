@@ -168,7 +168,9 @@ module Imprimatur
 
       # Lays the sheet out right to left, column A on the right, as Excel
       # shows sheets in right-to-left languages: Hebrew, Arabic, Persian,
-      # Urdu and the rest.
+      # Urdu and the rest; +false+ keeps it left to right. Without a call, a
+      # sheet is right to left when most of the letters of its name and text
+      # cells are.
       #
       # @return [self]
       def right_to_left!(enabled = true)

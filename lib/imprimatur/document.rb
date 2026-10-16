@@ -40,7 +40,8 @@ module Imprimatur
     #
     # @param text [String, nil] plain text, styled by the keywords below
     # @param align [:left, :center, :right, nil]
-    # @param direction [:ltr, :rtl, nil] right to left aligns right unless told otherwise
+    # @param direction [:ltr, :rtl, nil] nil takes the direction of the first letter;
+    #   right to left aligns right unless told otherwise
     # @yieldparam paragraph [Paragraph] add runs with {Paragraph#text}
     # @return [self]
     def paragraph(text = nil, align: nil, direction: nil, **look)

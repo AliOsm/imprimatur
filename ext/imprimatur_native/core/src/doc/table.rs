@@ -1,5 +1,12 @@
+use crate::script::Counts;
+use crate::style::TextDirection;
+
 /// A grid of text cells; columns share the page width equally. Short rows
 /// are padded with empty cells.
+///
+/// Each cell reads in the direction of its first letter, a cell of figures
+/// in the table's; a table mostly right to left has its first column on the
+/// right.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Table {
     pub(crate) rows: Vec<Vec<String>>,
@@ -37,5 +44,19 @@ impl Table {
 
     pub(crate) const fn has_header(&self) -> bool {
         self.header
+    }
+
+    /// The direction most of the table's letters read in; `None` without a
+    /// letter.
+    pub(crate) fn direction(&self) -> Option<TextDirection> {
+        let mut counts = Counts::default();
+        self.count(&mut counts);
+        counts.direction()
+    }
+
+    pub(crate) fn count(&self, counts: &mut Counts) {
+        for cell in self.rows.iter().flatten() {
+            counts.add(cell);
+        }
     }
 }

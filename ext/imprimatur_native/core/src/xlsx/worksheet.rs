@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use super::text::check_length;
 use super::{Cell, CellRange, Comment, Format, Validation};
+use crate::script::Counts;
 use crate::{Error, Result};
 
 /// Rows in a sheet (Excel 2007 and later).
@@ -40,7 +41,8 @@ pub struct Worksheet {
     /// The style of an unformatted date, then of an unformatted date and time.
     date_styles: [Option<u32>; 2],
     widths: BTreeMap<u16, f64>,
-    right_to_left: bool,
+    /// As set; `None` to follow the sheet's text.
+    right_to_left: Option<bool>,
     validations: Vec<(CellRange, Validation)>,
     comments: BTreeMap<(u32, u16), Comment>,
 }
@@ -55,7 +57,7 @@ impl Worksheet {
             format_ids: HashMap::new(),
             date_styles: [None; 2],
             widths: BTreeMap::new(),
-            right_to_left: false,
+            right_to_left: None,
             validations: Vec::new(),
             comments: BTreeMap::new(),
         }
@@ -174,16 +176,27 @@ impl Worksheet {
         Ok(self)
     }
 
-    /// Lays the sheet out right to left: column `A` on the right, as Excel
-    /// shows sheets for Arabic and Hebrew.
+    /// Lays the sheet out right to left, column `A` on the right, as Excel
+    /// shows sheets for Arabic and Hebrew; or left to right. Without a
+    /// call, a sheet is right to left when most of the letters of its name
+    /// and text cells are.
     pub const fn set_right_to_left(&mut self, right_to_left: bool) -> &mut Self {
-        self.right_to_left = right_to_left;
+        self.right_to_left = Some(right_to_left);
         self
     }
 
     #[must_use]
-    pub const fn is_right_to_left(&self) -> bool {
-        self.right_to_left
+    pub fn is_right_to_left(&self) -> bool {
+        self.right_to_left.unwrap_or_else(|| {
+            let mut counts = Counts::default();
+            counts.add(&self.name);
+            for entry in self.rows.values().flat_map(BTreeMap::values) {
+                if let Cell::Text(text) = &entry.cell {
+                    counts.add(text);
+                }
+            }
+            counts.right_to_left()
+        })
     }
 
     /// Applies a rule to the cells of `range`, whether or not they hold values.

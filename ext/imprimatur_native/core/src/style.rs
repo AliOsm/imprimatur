@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod tests;
 
+use crate::script::{Class, class};
 use crate::{Error, Result};
 
 /// An opaque RGB color.
@@ -72,6 +73,26 @@ pub enum TextDirection {
 }
 
 impl TextDirection {
+    /// The direction text takes on its own, the way Word and browsers settle
+    /// a paragraph left to automatic: that of its first letter (UAX #9, P2).
+    /// `None` when it has no letter: digits, punctuation, nothing.
+    ///
+    /// ```
+    /// use imprimatur::style::TextDirection;
+    ///
+    /// assert_eq!(TextDirection::of("2024 شهادة"), Some(TextDirection::RightToLeft));
+    /// assert_eq!(TextDirection::of("ISO 9001 אישור"), Some(TextDirection::LeftToRight));
+    /// assert_eq!(TextDirection::of("1,250.50"), None);
+    /// ```
+    #[must_use]
+    pub fn of(text: &str) -> Option<Self> {
+        text.chars().find_map(|ch| match class(ch) {
+            Class::Right | Class::Arabic => Some(Self::RightToLeft),
+            Class::Left => Some(Self::LeftToRight),
+            Class::Number | Class::ArabicNumber | Class::Neutral => None,
+        })
+    }
+
     /// `readingOrder`: 1 left to right, 2 right to left (0 is context).
     pub(crate) const fn reading_order(self) -> &'static str {
         match self {

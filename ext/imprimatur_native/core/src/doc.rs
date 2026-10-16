@@ -33,6 +33,7 @@ use std::path::Path;
 pub use paragraph::{Paragraph, Run};
 pub use table::Table;
 
+use crate::script::Counts;
 use crate::{Error, Result};
 
 /// Paper size; pages are portrait.
@@ -142,6 +143,23 @@ impl Document {
     pub fn page_break(&mut self) -> &mut Self {
         self.blocks.push(Block::PageBreak);
         self
+    }
+
+    /// Whether most of the document's letters are right to left: its pages
+    /// are then laid out right to left.
+    pub(crate) fn reads_right_to_left(&self) -> bool {
+        let mut counts = Counts::default();
+        for block in &self.blocks {
+            match block {
+                Block::Heading { text, .. } => counts.add(text),
+                Block::Paragraph(paragraph) => {
+                    paragraph.runs.iter().for_each(|run| counts.add(&run.text));
+                }
+                Block::Table(table) => table.count(&mut counts),
+                Block::PageBreak => {}
+            }
+        }
+        counts.right_to_left()
     }
 
     #[must_use]

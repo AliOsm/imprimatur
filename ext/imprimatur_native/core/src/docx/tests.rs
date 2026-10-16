@@ -93,3 +93,45 @@ fn numbers_pages_in_a_footer() {
 fn output_is_deterministic() {
     assert_eq!(sample().to_docx().unwrap(), sample().to_docx().unwrap());
 }
+
+#[test]
+fn takes_direction_from_the_text() {
+    let mut doc = Document::new();
+    doc.heading(1, "تقرير المطابقة").unwrap();
+    doc.paragraph("شهادة صادرة لشركة الأمل للتجارة").unwrap();
+    doc.push_paragraph(Paragraph::new().text("Supplier: ").text("شركة الأمل")).unwrap();
+    doc.push_paragraph(
+        Paragraph::new().text("مرحبا").text(" Foxconn").direction(TextDirection::LeftToRight),
+    )
+    .unwrap();
+    doc.table(Table::new([["المنتج", "الكمية"], ["قماش", "100"]])).unwrap();
+    let parts = parts(&doc);
+    let body = part(&parts, "word/document.xml");
+    let rtl = "<w:r><w:rPr><w:rtl/></w:rPr>";
+    let latin = r#"<w:r><w:t xml:space="preserve">"#;
+    for expected in [
+        // A heading and a paragraph in Arabic, without being told.
+        format!(r#"<w:pPr><w:pStyle w:val="Heading1"/><w:bidi/></w:pPr>{rtl}"#),
+        format!("<w:p><w:pPr><w:bidi/></w:pPr>{rtl}"),
+        // An English paragraph: its Arabic run alone right to left.
+        format!("<w:p>{latin}Supplier: </w:t></w:r>{rtl}"),
+        // Told left to right: no w:bidi, the Arabic run still right to left.
+        format!("<w:p>{rtl}<w:t xml:space=\"preserve\">مرحبا</w:t></w:r>{latin} Foxconn"),
+        // A mostly Arabic table, first column on the right; a cell of figures
+        // in the table's direction.
+        r#"<w:tblStyle w:val="TableGrid"/><w:bidiVisual/><w:tblW"#.to_owned(),
+        format!("<w:p><w:pPr><w:bidi/></w:pPr>{rtl}<w:t xml:space=\"preserve\">100</w:t>"),
+        // A mostly Arabic document: pages laid out right to left.
+        concat!(
+            r#"<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>"#,
+            "<w:bidi/></w:sectPr>"
+        )
+        .to_owned(),
+    ] {
+        assert!(body.contains(&expected), "missing {expected}\n{body}");
+    }
+
+    let sample = self::parts(&sample());
+    let latin = part(&sample, "word/document.xml");
+    assert!(!latin.contains("bidiVisual") && !latin.contains("<w:bidi/></w:sectPr>"), "{latin}");
+}

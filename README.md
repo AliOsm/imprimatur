@@ -137,22 +137,23 @@ shown all the time with `visible: true`. The cell need not hold a value.
 ```ruby
 rtl = Imprimatur.style(direction: :rtl)
 
-book.sheet("مبيعات") do |sheet|                        # Arabic
-  sheet.right_to_left!                                 # column A on the right
-  sheet.row "المنطقة", "الشمال", style: rtl
+book.sheet("مبيعات") do |sheet|                        # Arabic: right to left
+  sheet.row "المنطقة", "الشمال", style: rtl              # column A on the right
 end
 
-book.sheet("מכירות") do |sheet|                        # Hebrew
-  sheet.right_to_left!
-  sheet.row "אזור", "צפון", style: rtl
+book.sheet("Suppliers") do |sheet|
+  sheet.right_to_left!                                 # told so: a Hebrew layout
+  sheet.row "אזור", "Region"
 end
 ```
 
 Text in any right-to-left language needs nothing special: Hebrew, Yiddish,
 Arabic, Persian, Urdu, Pashto, Sindhi, Kurdish (Sorani), Uyghur, Syriac,
-Dhivehi (Thaana), N'Ko, Adlam and the rest. `right_to_left!` lays the sheet
-out the way Excel does for them, and `direction: :rtl` fixes a cell's reading
-order instead of letting Excel infer it from its first letter.
+Dhivehi (Thaana), N'Ko, Adlam and the rest. A sheet whose letters (its name
+and text cells) are mostly right to left is laid out the way Excel does for
+them, column A on the right; `right_to_left!` and `right_to_left!(false)`
+decide instead. `direction: :rtl` fixes a cell's reading order instead of
+letting Excel infer it from its first letter.
 
 Not yet: merged cells, frozen panes, streaming for very large sheets.
 
@@ -185,8 +186,12 @@ Imprimatur.pdf("memo.pdf") { it.paragraph "Or in one go." }    # Imprimatur.docx
 - Tables: equal columns, borders, a shaded header row that repeats on every
   page; cells are converted with `to_s`.
 - Page breaks, A4 or Letter, `1 / N` page numbers.
-- `direction: :rtl` makes a right-to-left paragraph (right aligned, and
-  `w:bidi` in DOCX).
+- Right to left without being told: a paragraph, heading or table cell
+  reads in the direction of its first letter (right aligned, and `w:bidi` in
+  DOCX), figures alone in their table's or document's, each run in its own;
+  a mostly right-to-left table has its first column on the right, and a
+  mostly right-to-left document its pages laid out right to left.
+  `direction: :rtl` or `:ltr` decides for a paragraph.
 
 **PDF text is Latin only for now.** PDFs use the standard Helvetica fonts,
 which carry Windows-1252: English and Western European text, curly quotes,

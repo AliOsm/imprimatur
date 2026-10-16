@@ -179,6 +179,32 @@ fn lays_out_right_to_left_sheets() {
     assert!(part(&parts, "xl/workbook.xml").contains(r#"<sheet name="عربي""#));
 }
 
+/// (case, sheet name, a row, told right to left, laid out right to left)
+type DirectionCase = (&'static str, &'static str, &'static [&'static str], Option<bool>, bool);
+
+#[test]
+fn lays_out_sheets_in_the_direction_of_their_text() {
+    const CASES: &[DirectionCase] = &[
+        ("mostly Arabic", "Sales", &["المنطقة", "الشمال", "Q1"], None, true),
+        ("mostly Hebrew", "Data", &["אזור", "צפון"], None, true),
+        ("an Arabic name, figures", "مبيعات", &["100", "200"], None, true),
+        ("mostly Latin", "Suppliers", &["Supplier", "شركة"], None, false),
+        ("told otherwise", "Sales", &["المنطقة", "الشمال"], Some(false), false),
+        ("told so", "Sales", &["Region"], Some(true), true),
+    ];
+    for (case, name, row, told, expected) in CASES {
+        let mut book = Workbook::new();
+        let sheet = book.add_sheet(*name).unwrap();
+        sheet.append_row(row.iter().copied()).unwrap();
+        if let Some(told) = told {
+            sheet.set_right_to_left(*told);
+        }
+        assert_eq!(book.sheets()[0].is_right_to_left(), *expected, "{case}");
+        let xml = part(&parts(&book), "xl/worksheets/sheet1.xml").to_owned();
+        assert_eq!(xml.contains(r#"rightToLeft="1""#), *expected, "{case}: {xml}");
+    }
+}
+
 #[test]
 fn refuses_an_empty_workbook() {
     assert_matches!(Workbook::new().to_bytes(), Err(Error::EmptyWorkbook));

@@ -9,10 +9,11 @@ mod tests;
 use std::collections::HashMap;
 use std::ops::Range;
 
-use self::bidi::{Counts, Scratch, is_mark};
+use self::bidi::{Scratch, is_mark};
 use super::content::{Glyph, PageText};
 use crate::read::content::{Block, Bounds, Page, Placed, Text};
 use crate::read::span;
+use crate::script::Counts;
 
 /// Share of the page height, at the top and the bottom, where running
 /// headers and footers live.

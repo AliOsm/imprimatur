@@ -34,5 +34,10 @@ fn right_to_left_paragraphs_align_right_by_default() {
     let rtl = Paragraph::new().text("שלום").direction(TextDirection::RightToLeft);
     assert_eq!(rtl.effective_align(), Align::Right);
     assert_eq!(rtl.align(Align::Center).effective_align(), Align::Center);
+    // Without a direction, the first letter's: figures first do not count.
+    assert_eq!(Paragraph::new().text("2024 ").text("שלום").effective_align(), Align::Right);
+    assert_eq!(Paragraph::new().text("ISO שלום").effective_align(), Align::Left);
+    let told = Paragraph::new().text("שלום").direction(TextDirection::LeftToRight);
+    assert_eq!(told.effective_align(), Align::Left);
     assert_eq!(Paragraph::new().effective_align(), Align::Left);
 }

@@ -64,9 +64,14 @@ class DocumentTest < Minitest::Test
 
   def test_right_to_left_text_goes_to_docx_but_not_the_standard_pdf_fonts
     doc = Imprimatur::Document.new
-    doc.paragraph 'مرحبا بالعالم', direction: :rtl
+    doc.paragraph 'مرحبا بالعالم'
+    doc.paragraph 'שלום', direction: :ltr
 
-    assert_includes ZipReader.entries(doc.to_docx)['word/document.xml'], '<w:bidi/>'
+    body = ZipReader.entries(doc.to_docx)['word/document.xml']
+
+    assert_includes body, '<w:p><w:pPr><w:bidi/></w:pPr>', 'right to left without being told'
+    assert_includes body, '<w:p><w:r><w:rPr><w:rtl/></w:rPr><w:t xml:space="preserve">שלום', 'told otherwise'
+    assert_includes body, '<w:bidi/></w:sectPr>', 'pages laid out right to left'
     error = assert_raises(Imprimatur::Error) { doc.to_pdf }
     assert_match(/U\+0645.*Helvetica/, error.message)
   end

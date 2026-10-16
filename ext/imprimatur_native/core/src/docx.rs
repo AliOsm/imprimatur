@@ -83,6 +83,9 @@ fn page_number_footer() -> String {
 }
 
 fn body(document: &Document) -> String {
+    // What reads in no direction of its own (figures, punctuation) takes the
+    // document's.
+    let rtl = document.reads_right_to_left();
     let mut xml = XmlWriter::new();
     xml.open("w:document", &[("xmlns:w", W_NS), ("xmlns:r", opc::RELATIONSHIPS)]);
     xml.open("w:body", &[]);
@@ -90,10 +93,10 @@ fn body(document: &Document) -> String {
         match block {
             Block::Heading { level, text } => {
                 let style = format!("Heading{level}");
-                simple_paragraph(&mut xml, Some(&style), text, Look::default());
+                simple_paragraph(&mut xml, Some(&style), text, Look::default(), rtl);
             }
-            Block::Paragraph(content) => paragraph(&mut xml, content),
-            Block::Table(content) => table(&mut xml, content, document),
+            Block::Paragraph(content) => paragraph(&mut xml, content, rtl),
+            Block::Table(content) => table(&mut xml, content, document, rtl),
             Block::PageBreak => {
                 xml.open("w:p", &[]);
                 xml.open("w:r", &[]);
@@ -107,25 +110,37 @@ fn body(document: &Document) -> String {
     if matches!(document.blocks().last(), Some(Block::Table(_))) {
         xml.empty("w:p", &[]);
     }
-    section(&mut xml, document);
+    section(&mut xml, document, rtl);
     xml.close("w:body");
     xml.close("w:document");
     xml.finish()
 }
 
-fn paragraph(xml: &mut XmlWriter, content: &Paragraph) {
-    let rtl = content.direction == Some(TextDirection::RightToLeft);
+/// Each run reads in the direction of its own first letter, as Word sets
+/// them: the Latin runs of a Hebrew paragraph left to right, the Arabic
+/// ones of an English paragraph right to left.
+fn paragraph(xml: &mut XmlWriter, content: &Paragraph, document_rtl: bool) {
+    let rtl = right_to_left(content.effective_direction(), document_rtl);
     open_paragraph(xml, None, rtl, content.align);
     for item in &content.runs {
-        run(xml, &item.text, Look::of(item), rtl);
+        run(xml, &item.text, Look::of(item), right_to_left(TextDirection::of(&item.text), rtl));
     }
     xml.close("w:p");
 }
 
-/// A one-run paragraph straight from borrowed text: headings and table cells.
-fn simple_paragraph(xml: &mut XmlWriter, style: Option<&str>, text: &str, look: Look) {
-    open_paragraph(xml, style, false, None);
-    run(xml, text, look, false);
+/// Whether `direction` is right to left; `otherwise` when there is none:
+/// text with no letter (figures, punctuation) takes the direction of what
+/// holds it.
+fn right_to_left(direction: Option<TextDirection>, otherwise: bool) -> bool {
+    direction.map_or(otherwise, |direction| direction == TextDirection::RightToLeft)
+}
+
+/// A one-run paragraph straight from borrowed text: headings and table
+/// cells, in the direction of their first letter, or of what holds them.
+fn simple_paragraph(xml: &mut XmlWriter, style: Option<&str>, text: &str, look: Look, rtl: bool) {
+    let rtl = right_to_left(TextDirection::of(text), rtl);
+    open_paragraph(xml, style, rtl, None);
+    run(xml, text, look, rtl);
     xml.close("w:p");
 }
 
@@ -207,7 +222,8 @@ fn run(xml: &mut XmlWriter, text: &str, look: Look, rtl: bool) {
     xml.close("w:r");
 }
 
-fn table(xml: &mut XmlWriter, content: &Table, document: &Document) {
+fn table(xml: &mut XmlWriter, content: &Table, document: &Document, document_rtl: bool) {
+    let rtl = right_to_left(content.direction(), document_rtl);
     let columns = content.columns();
     let (page_width, _) = document.page_size().twips();
     let usable = page_width - 2 * MARGIN;
@@ -217,6 +233,9 @@ fn table(xml: &mut XmlWriter, content: &Table, document: &Document) {
     xml.open("w:tbl", &[]);
     xml.open("w:tblPr", &[]);
     xml.empty("w:tblStyle", &[("w:val", "TableGrid")]);
+    if rtl {
+        xml.empty("w:bidiVisual", &[]);
+    }
     xml.empty("w:tblW", &[("w:w", "5000"), ("w:type", "pct")]);
     xml.close("w:tblPr");
     xml.open("w:tblGrid", &[]);
@@ -244,7 +263,7 @@ fn table(xml: &mut XmlWriter, content: &Table, document: &Document) {
             }
             xml.close("w:tcPr");
             let text = row.get(column).map_or("", String::as_str);
-            simple_paragraph(xml, None, text, Look { bold: header, ..Look::default() });
+            simple_paragraph(xml, None, text, Look { bold: header, ..Look::default() }, rtl);
             xml.close("w:tc");
         }
         xml.close("w:tr");
@@ -252,7 +271,7 @@ fn table(xml: &mut XmlWriter, content: &Table, document: &Document) {
     xml.close("w:tbl");
 }
 
-fn section(xml: &mut XmlWriter, document: &Document) {
+fn section(xml: &mut XmlWriter, document: &Document, rtl: bool) {
     let (width, height) = document.page_size().twips();
     let (width, height, margin) = (width.to_string(), height.to_string(), MARGIN.to_string());
     xml.open("w:sectPr", &[]);
@@ -264,6 +283,9 @@ fn section(xml: &mut XmlWriter, document: &Document) {
     let margins =
         [("w:top", &margin), ("w:right", &margin), ("w:bottom", &margin), ("w:left", &margin)];
     xml.empty("w:pgMar", &margins.map(|(key, value)| (key, value.as_str())));
+    if rtl {
+        xml.empty("w:bidi", &[]);
+    }
     xml.close("w:sectPr");
 }
 

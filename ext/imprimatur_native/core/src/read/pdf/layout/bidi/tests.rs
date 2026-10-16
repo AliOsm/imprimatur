@@ -56,7 +56,7 @@ fn puts_lines_in_reading_order() {
 }
 
 #[test]
-fn knows_the_right_to_left_scripts_and_their_marks() {
+fn knows_the_marks_of_the_right_to_left_scripts() {
     const MARKS: &[(char, bool)] = &[
         ('\u{05B4}', true),
         ('\u{064E}', true),
@@ -70,31 +70,6 @@ fn knows_the_right_to_left_scripts_and_their_marks() {
         ('\u{05E9}', false),
         ('a', false),
     ];
-    const CLASSES: &[(char, Class)] = &[
-        ('\u{05D0}', Class::Right),
-        ('\u{FB2A}', Class::Right),
-        ('\u{07CA}', Class::Right),
-        ('\u{0800}', Class::Right),
-        ('\u{0840}', Class::Right),
-        ('\u{1E900}', Class::Right),
-        ('\u{200F}', Class::Right),
-        ('\u{0628}', Class::Arabic),
-        ('\u{0710}', Class::Arabic),
-        ('\u{0780}', Class::Arabic),
-        ('\u{FEFB}', Class::Arabic),
-        ('\u{10D00}', Class::Arabic),
-        ('\u{200E}', Class::Left),
-        ('a', Class::Left),
-        ('7', Class::Number),
-        ('\u{0663}', Class::ArabicNumber),
-        ('\u{06F5}', Class::Number),
-        ('\u{066A}', Class::Neutral),
-        ('\u{FEFF}', Class::Neutral),
-        (' ', Class::Neutral),
-    ];
-    for &(ch, expected) in CLASSES {
-        assert_eq!(class(ch), expected, "U+{:04X}", u32::from(ch));
-    }
     for &(ch, expected) in MARKS {
         assert_eq!(is_mark(ch), expected, "U+{:04X}", u32::from(ch));
     }

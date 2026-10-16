@@ -46,8 +46,9 @@ impl Run {
     }
 }
 
-/// Runs of text laid out together. Left aligned unless told otherwise, or
-/// right aligned when right to left.
+/// Runs of text laid out together, in the direction set or else that of
+/// their first letter. Left aligned unless told otherwise, or right aligned
+/// when right to left.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Paragraph {
     pub(crate) runs: Vec<Run>,
@@ -102,9 +103,15 @@ impl Paragraph {
         &self.runs
     }
 
+    /// The direction the paragraph reads in: as set, or else that of its
+    /// first letter.
+    pub(crate) fn effective_direction(&self) -> Option<TextDirection> {
+        self.direction.or_else(|| self.runs.iter().find_map(|run| TextDirection::of(&run.text)))
+    }
+
     /// The alignment the paragraph is laid out with.
     pub(crate) fn effective_align(&self) -> Align {
-        self.align.unwrap_or(match self.direction {
+        self.align.unwrap_or_else(|| match self.effective_direction() {
             Some(TextDirection::RightToLeft) => Align::Right,
             _ => Align::Left,
         })

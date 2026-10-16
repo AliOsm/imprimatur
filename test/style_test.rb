@@ -79,6 +79,14 @@ class StyleTest < Minitest::Test
     assert_includes parts['xl/sharedStrings.xml'], '<t>مرحبا</t>'
   end
 
+  def test_sheets_follow_the_direction_of_their_text
+    view = '<sheetView rightToLeft="1" workbookViewId="0"/>'
+
+    assert_includes styled_parts { it.row('المنطقة', 'الشمال') }['xl/worksheets/sheet1.xml'], view
+    refute_includes styled_parts { it.right_to_left!(false).row('المنطقة') }['xl/worksheets/sheet1.xml'], view
+    refute_includes styled_parts { it.row('Region', 'North') }['xl/worksheets/sheet1.xml'], view
+  end
+
   def test_rejects_invalid_styles_when_built
     assert_raises(Imprimatur::Error) { Imprimatur.style(color: 'red') }
     assert_raises(Imprimatur::Error) { Imprimatur.style(number_format: '') }

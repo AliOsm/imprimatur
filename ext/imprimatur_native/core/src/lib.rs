@@ -28,6 +28,7 @@ pub mod font;
 mod opc;
 mod pdf;
 pub mod read;
+mod script;
 pub mod style;
 #[cfg(test)]
 mod test_support;
