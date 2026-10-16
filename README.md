@@ -341,6 +341,16 @@ characters and the whitespace at both ends of every String. Without such a row
 it raises `Imprimatur::HeaderRowNotFound`, whose `missing` lists the headers the
 closest row lacks.
 
+Each sheet also has its `comments`, its `columns` (runs of widths, and whether
+hidden) and its `validations`, as `Imprimatur.content` gives them. Opened with
+`styles: true`, it has every formatted cell's look too:
+
+```ruby
+sheet = Imprimatur.spreadsheet("template.xlsx", styles: true).sheet("BOM")
+sheet.validation("G2:G1000")   # => { range: "G2:G1000", type: "list", formula1: "Lists!$A$1:$A$9", ... }
+sheet.style("A1")              # => { cell: "A1", font: "Arial", bold: true, fill: "FFDDEEFF", ... }
+```
+
 ## Zip archives
 
 Archives of any files, for what is not a document (an export of an order's

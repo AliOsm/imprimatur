@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'date'
+require 'json'
 
 module Imprimatur
   # No row among the first ones of a sheet holds every header
@@ -41,13 +42,33 @@ module Imprimatur
       attr_reader :rows
 
       # @api private
-      def initialize(name, hidden, rows)
+      def initialize(name, hidden, rows, details)
         @name = name
         @hidden = hidden
         @rows = rows
+        @details = details
       end
 
       def hidden? = @hidden
+
+      # @return [Array<Hash>] +{cell:, author:, text:}+
+      def comments = details[:comments]
+
+      # @return [Array<Hash>] runs of +{first:, last:, width:, hidden:}+ columns, by letter
+      def columns = details[:columns]
+
+      # @return [Array<Hash>] +{range:, type:, formula1:, ...}+, as {Imprimatur.content} gives them
+      def validations = details[:validations]
+
+      # @return [Array<Hash>] each formatted cell's +{cell:, font:, size:, bold:, fill:, ...}+;
+      #   empty unless the workbook was opened with +styles: true+
+      def styles = details.fetch(:styles, [])
+
+      # @return [Hash, nil] the validation over exactly +range+ (+"G2:G1000"+)
+      def validation(range) = validations.find { it[:range] == range }
+
+      # @return [Hash, nil] the look of the cell at +reference+ (+"A1"+)
+      def style(reference) = styles.find { it[:cell] == reference }
 
       # The rows under the header row, as Hashes of +headers+' keys to the
       # values in the columns their headers name. The header row is the
@@ -87,16 +108,22 @@ module Imprimatur
       def clean(value)
         value.is_a?(String) ? value.gsub(/[[:cntrl:]]|\A[[:space:]]+|[[:space:]]+\z/, '') : value
       end
+
+      def details
+        @details = JSON.parse(@details, symbolize_names: true) if @details.is_a?(String)
+        @details
+      end
     end
 
     # @param document [String, Pathname, #read] a path, the bytes or an IO
+    # @param styles [Boolean] each sheet's {Sheet#styles} too
     # @param limits [Hash] +max_bytes:+, +max_inflated:+ and +timeout:+, as
     #   {Imprimatur.content} takes them
     # @return [Spreadsheet]
     # @raise [UnsupportedDocument] a PDF, a Word document or another format
     # @raise [Imprimatur::Error] a damaged workbook, or past a limit
-    def self.open(document, **limits)
-      new(Native.sheets(Reader.read(document), *Reader.limits(**limits)))
+    def self.open(document, styles: false, **limits)
+      new(Native.sheets(Reader.read(document), *Reader.limits(**limits), styles ? true : false))
     end
 
     # @return [Array<Sheet>] in the workbook's order, hidden ones included
@@ -104,7 +131,7 @@ module Imprimatur
 
     # @api private
     def initialize(sheets)
-      @sheets = sheets.map { |name, hidden, rows| Sheet.new(name, hidden, rows) }.freeze
+      @sheets = sheets.map { |name, hidden, rows, details| Sheet.new(name, hidden, rows, details) }.freeze
     end
 
     # @return [Array<String>]

@@ -320,7 +320,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     native.define_singleton_method("markdown", function!(read::markdown_native, 4))?;
     native.define_singleton_method("content", function!(read::content_native, 5))?;
     native.define_singleton_method("images", function!(read::images_native, 4))?;
-    native.define_singleton_method("sheets", function!(sheets::sheets_native, 4))?;
+    native.define_singleton_method("sheets", function!(sheets::sheets_native, 5))?;
     let zip_writer = native.define_class("ZipWriter", ruby.class_object())?;
     zip_writer.define_singleton_method("new", function!(archive::ZipWriter::new, 1))?;
     zip_writer.define_method("add_file", method!(archive::ZipWriter::add_file, 3))?;

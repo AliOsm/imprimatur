@@ -134,6 +134,18 @@ fn with_marks(mut object: Json, marks: &[Mark]) -> Json {
 }
 
 fn sheet(sheet: &Sheet, options: Options) -> Json {
+    let mut object = Map::new();
+    object.insert("name".into(), sheet.name.clone().into());
+    object.insert("hidden".into(), sheet.hidden.into());
+    object.insert("rows".into(), rows(&sheet.cells, true));
+    object.extend(sheet_details(sheet, options));
+    Json::Object(object)
+}
+
+/// What a sheet has besides its values: `comments`, `columns`,
+/// `validations` and, with `options.styles`, `styles`.
+#[must_use]
+pub fn sheet_details(sheet: &Sheet, options: Options) -> Map<String, Json> {
     let comments: Vec<Json> = sheet
         .comments
         .iter()
@@ -142,20 +154,14 @@ fn sheet(sheet: &Sheet, options: Options) -> Json {
             json!({ "cell": note.reference(), "author": author, "text": note.text })
         })
         .collect();
-    let mut object = json!({
-        "name": sheet.name,
-        "hidden": sheet.hidden,
-        "rows": rows(&sheet.cells, true),
-        "comments": comments,
-        "columns": sheet.columns.iter().map(columns).collect::<Vec<_>>(),
-        "validations": sheet.validations.iter().map(validation).collect::<Vec<_>>(),
-    });
-    if options.styles
-        && let Json::Object(fields) = &mut object
-    {
-        fields.insert("styles".into(), sheet.styles.iter().map(styled).collect());
+    let mut details = Map::new();
+    details.insert("comments".into(), comments.into());
+    details.insert("columns".into(), sheet.columns.iter().map(columns).collect());
+    details.insert("validations".into(), sheet.validations.iter().map(validation).collect());
+    if options.styles {
+        details.insert("styles".into(), sheet.styles.iter().map(styled).collect());
     }
-    object
+    details
 }
 
 /// Columns by letter: `A`, `XFD`.

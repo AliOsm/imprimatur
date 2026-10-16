@@ -1,7 +1,7 @@
 //! `Imprimatur::Native.sheets`: a workbook's sheets as rows of Ruby values,
 //! built from the cells directly instead of a hash per cell.
 
-use imprimatur::read::{Cell, Content, Grid, Sheet, Value, content};
+use imprimatur::read::{Cell, Content, Grid, Sheet, Value, content, json};
 use imprimatur::xlsx::DateTime;
 use magnus::prelude::*;
 use magnus::{Error, IntoValue, RArray, RClass, RString, Ruby, Value as RubyValue};
@@ -12,15 +12,18 @@ use crate::read::without_gvl;
 /// The largest whole `f64` an Integer can come from exactly.
 const MAX_EXACT_INTEGER: f64 = 9_007_199_254_740_992.0;
 
-/// Called by `Imprimatur::Spreadsheet.open`: `[name, hidden, rows]` per
-/// sheet, the rows from the first to the last with a value, each an Array
-/// of values by column, `nil` where a cell is empty.
+/// Called by `Imprimatur::Spreadsheet.open`: `[name, hidden, rows, details]`
+/// per sheet. The rows run from the first to the last with a value, each an
+/// Array of values by column, `nil` where a cell is empty; the details are
+/// the sheet's comments, columns, validations and, when `styles`, styles,
+/// as JSON.
 pub fn sheets_native(
     ruby: &Ruby,
     document: RString,
     max_input: Option<usize>,
     max_inflated: Option<u64>,
     timeout: Option<f64>,
+    styles: bool,
 ) -> Result<RArray, Error> {
     let read = without_gvl(ruby, document, (max_input, max_inflated, timeout), content)?;
     let Some(sheets) = read.sheets() else {
@@ -31,10 +34,12 @@ pub fn sheets_native(
     let dates = Dates::load(ruby)?;
     let out = ruby.ary_new_capa(sheets.len());
     for sheet in sheets {
+        let details = json::sheet_details(sheet, json::Options { styles });
         let entry = [
             ruby.str_new(&sheet.name).into_value_with(ruby),
             sheet.hidden.into_value_with(ruby),
             rows(ruby, sheet, &dates)?.into_value_with(ruby),
+            ruby.str_new(&serde_json::Value::Object(details).to_string()).into_value_with(ruby),
         ];
         out.push(ruby.ary_new_from_values(&entry))?;
     }

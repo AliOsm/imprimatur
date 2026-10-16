@@ -13,6 +13,7 @@ class SpreadsheetTest < Minitest::Test
         sheet.write(3, 4, 2, style: Imprimatur.style(number_format: '0.00'))
         sheet.write(3, 3, 0.5, style: Imprimatur.style(number_format: '0%'))
         sheet.row 'Bolt', nil, Time.utc(2024, 3, 15, 9, 30), 1, 1_250, false
+        sheet.validate 'B4:B9', list: %w[PL DE]
       end
       book.sheet('Countries') { it.row 'Name' }
     end
@@ -28,6 +29,9 @@ class SpreadsheetTest < Minitest::Test
     assert_instance_of Integer, bolt[4]
     assert_empty book.sheet.rows[1], 'an empty row keeps its place'
     assert_raises(KeyError) { book.sheet('Missing') }
+    assert_equal '"PL,DE"', book.sheet.validation('B4:B9')[:formula1]
+    assert_empty book.sheet.styles, 'styles are asked for'
+    assert_equal '0.00', Imprimatur.spreadsheet(workbook, styles: true).sheet.style('E4')[:number_format]
   end
 
   def test_parses_rows_under_the_header_row
