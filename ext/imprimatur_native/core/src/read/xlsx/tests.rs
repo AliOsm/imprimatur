@@ -1,4 +1,4 @@
-use crate::read::numbers::{Shown, classify, push_general};
+use crate::read::numbers::{Shown, classify, fixed, push_number};
 use crate::read::{
     Content, ImageFormat, ImageLocation, Limits, Note, Value, content, images, markdown as read,
 };
@@ -37,7 +37,7 @@ fn reads_what_the_writer_wrote() {
         "## Sales | Q1\n\n\
          | Region | Amount | Share | Closed | Done |\n\
          | --- | --- | --- | --- | --- |\n\
-         | North & West | 0.3 | 25% | 2023-03-15 | TRUE |\n\
+         | North & West | 0.3 | 25.0% | 2023-03-15 | TRUE |\n\
          | Total | =SUM(B2:B2) |  | 2023-03-15 09:30:00 |  |\n\n\
          Comments:\n\n\
          - A1 (Instructions): Field: Region\n  Required\n\n\
@@ -106,12 +106,12 @@ fn reads_what_other_writers_write() {
         "## Data (hidden)\n\n\
          | rich text | inline | #N/A |  |  |\n\
          | --- | --- | --- | --- | --- |\n\
-         | 2023-03-15 | 1.5 | 18:00:00 | 0 | cached |\n",
+         | 2023-03-15 | 1.50 | 18:00:00 | 0 | cached |\n",
         "a quoted word is no date, [h] is a time, and 1900-01-00 never existed"
     );
     let text = read(&package(r#"<workbookPr date1904="1"/>"#, &[]), &Limits::default()).unwrap();
     assert!(
-        text.contains("| 2027-03-16 | 1.5 | 18:00:00 | 1904-01-01 |"),
+        text.contains("| 2027-03-16 | 1.50 | 18:00:00 | 1904-01-01 |"),
         "the 1904 epoch: {text}"
     );
 }
@@ -147,16 +147,17 @@ fn finds_media_and_the_sheets_showing_them() {
 fn classifies_number_formats() {
     const CASES: &[(&str, Shown)] = &[
         ("General", Shown::General),
-        ("0.00", Shown::General),
-        ("0%", Shown::Percent),
+        ("0.00", fixed(2, false, false)),
+        ("0%", fixed(0, false, true)),
+        ("0.00E+00", Shown::General),
         ("yyyy-mm-dd", Shown::Date),
         ("mmm", Shown::Date),
         ("h:mm AM/PM", Shown::Time),
         ("[h]:mm:ss", Shown::Time),
         ("dd/mm/yy hh:mm", Shown::DateTime),
         ("\"Day\" 0", Shown::General),
-        ("[Red]0.00;[Blue]-0.00", Shown::General),
-        ("#,##0.00\\ \"d\"", Shown::General),
+        ("[Red]0.00;[Blue]-0.00", fixed(2, false, false)),
+        ("#,##0.00\\ \"d\"", fixed(2, true, false)),
     ];
     for &(code, shown) in CASES {
         assert_eq!(classify(code), shown, "{code}");
@@ -164,18 +165,24 @@ fn classifies_number_formats() {
 }
 
 #[test]
-fn general_shows_fifteen_digits() {
-    const CASES: &[(f64, &str)] = &[
-        (0.1 + 0.2, "0.3"),
-        (12.0, "12"),
-        (-0.5, "-0.5"),
-        (1e20, "100000000000000000000"),
-        (1.0 / 3.0, "0.333333333333333"),
+fn shows_numbers_as_excel_does() {
+    // General: 15 significant digits; fixed: decimals, `,` grouping, `%`.
+    const CASES: &[(f64, Shown, &str)] = &[
+        (0.1 + 0.2, Shown::General, "0.3"),
+        (12.0, Shown::General, "12"),
+        (-0.5, Shown::General, "-0.5"),
+        (1e20, Shown::General, "100000000000000000000"),
+        (1.0 / 3.0, Shown::General, "0.333333333333333"),
+        (2.0, fixed(2, false, false), "2.00"),
+        (-1_234_567.891, fixed(2, true, false), "-1,234,567.89"),
+        (999.0, fixed(0, true, false), "999"),
+        (0.125, fixed(0, false, true), "13%"),
+        (1.005, fixed(2, false, false), "1.01"),
     ];
     let (mut out, mut scratch) = (String::new(), String::new());
-    for &(number, shown) in CASES {
+    for &(number, shown, text) in CASES {
         out.clear();
-        push_general(&mut out, number, &mut scratch);
-        assert_eq!(out, shown, "{number}");
+        push_number(&mut out, number, shown, false, &mut scratch);
+        assert_eq!(out, text, "{number} {shown:?}");
     }
 }
