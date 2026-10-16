@@ -2,12 +2,14 @@
 //! glyphs, paragraphs by the gaps between lines, headings by size, and
 //! the running headers and footers left out.
 
+mod bidi;
 #[cfg(test)]
 mod tests;
 
 use std::collections::HashMap;
 use std::ops::Range;
 
+use self::bidi::{Counts, Scratch, is_mark};
 use super::content::{Glyph, PageText};
 use crate::read::content::{Block, Bounds, Page, Placed, Text};
 use crate::read::span;
@@ -61,7 +63,9 @@ pub fn lines(page: &PageText) -> PageLines {
         height,
         images: u32::try_from(page.images).unwrap_or(u32::MAX),
     };
+    let right_to_left = right_to_left(page);
     let mut pieces: Vec<&str> = Vec::new();
+    let mut scratch = Scratch::default();
     let mut glyphs: Vec<(f64, f64, &Glyph)> = Vec::with_capacity(page.glyphs.len());
     for turns in 0..4_u8 {
         glyphs.clear();
@@ -89,7 +93,7 @@ pub fn lines(page: &PageText) -> PageLines {
             let row = &mut glyphs[start..end];
             row.sort_by(|a, b| a.0.total_cmp(&b.0));
             let added = out.lines.len();
-            line(page, row, turns, &mut pieces, &mut out);
+            line(page, row, turns, right_to_left, &mut pieces, &mut scratch, &mut out);
             if let Some(line) = out.lines.get_mut(added)
                 && turns == 0
                 && (line.y > height * (1.0 - EDGE) || line.y < height * EDGE)
@@ -103,14 +107,31 @@ pub fn lines(page: &PageText) -> PageLines {
     out
 }
 
+/// Whether a page reads right to left: more of its letters, those in the
+/// top and bottom margins of upright text aside, are right to left.
+fn right_to_left(page: &PageText) -> bool {
+    let height = page.size.1.max(1.0);
+    let mut counts = Counts::default();
+    for glyph in &page.glyphs {
+        if glyph.turns == 0 && (glyph.y > height * (1.0 - EDGE) || glyph.y < height * EDGE) {
+            continue;
+        }
+        counts.add(&page.text[glyph.text.start as usize..glyph.text.end as usize]);
+    }
+    counts.right_to_left()
+}
+
 /// One line's text, appended to `out.text`: spaces where glyphs leave a
 /// word gap, a glyph drawn twice on itself (fake bold) kept once, and
-/// right-to-left lines in reading order. A line with no text is not added.
+/// right-to-left text in reading order, in the page's direction. A line
+/// with no text is not added.
 fn line<'p>(
     page: &'p PageText,
     row: &[(f64, f64, &Glyph)],
     turns: u8,
+    right_to_left: bool,
     pieces: &mut Vec<&'p str>,
+    scratch: &mut Scratch,
     out: &mut PageLines,
 ) {
     // Glyph texts and the spaces between them, left to right as drawn.
@@ -139,9 +160,7 @@ fn line<'p>(
         count += 1;
         previous = Some((x, glyph, glyph_text));
     }
-    if right_to_left(pieces) {
-        reorder(pieces);
-    }
+    bidi::reading_order(pieces, right_to_left, scratch);
     // Spaces collapsed and trimmed on the way in.
     let start = out.text.len();
     for ch in pieces.iter().flat_map(|piece| piece.chars()) {
@@ -170,120 +189,6 @@ fn margin_key(text: &str) -> u64 {
         (hash ^ u64::from(u32::from(ch))).wrapping_mul(0x0100_0000_01b3)
     });
     hash.max(1)
-}
-
-/// The strong direction of a character: `Some(true)` for the scripts
-/// written right to left, `Some(false)` for other letters and for digits
-/// (which keep their order within right-to-left text), `None` for spaces
-/// and punctuation.
-///
-/// Right to left: Hebrew (and Yiddish, Ladino), Arabic (and Persian, Urdu,
-/// Pashto, Sindhi, Kurdish, Uyghur), Syriac, Thaana (Dhivehi), N'Ko,
-/// Samaritan, Mandaic, their presentation forms; Adlam (Fulani), Hanifi
-/// Rohingya, Mende Kikakui, Yezidi, Garay and the historic scripts
-/// (Phoenician, Aramaic, Sogdian...); and the right-to-left mark.
-fn direction(ch: char) -> Option<bool> {
-    match ch {
-        '\u{0590}'..='\u{08FF}'
-        | '\u{200F}'
-        | '\u{FB1D}'..='\u{FDFF}'
-        | '\u{FE70}'..='\u{FEFC}'
-        | '\u{10800}'..='\u{10FFF}'
-        | '\u{1E800}'..='\u{1EFFF}' => Some(true),
-        '\u{200E}' => Some(false),
-        ch if ch.is_alphanumeric() => Some(false),
-        _ => None,
-    }
-}
-
-/// Combining marks: diacritics, and the vowel points and signs of the
-/// right-to-left scripts. Drawn as glyphs of their own, they never start a
-/// word.
-const fn is_mark(ch: char) -> bool {
-    matches!(
-        ch,
-        '\u{0300}'..='\u{036F}'
-            // Hebrew points and cantillation.
-            | '\u{0591}'..='\u{05C7}'
-            | '\u{FB1E}'
-            // Arabic harakat, Quranic annotation, extended Arabic marks.
-            | '\u{0610}'..='\u{061A}'
-            | '\u{064B}'..='\u{065F}'
-            | '\u{0670}'
-            | '\u{06D6}'..='\u{06ED}'
-            | '\u{0898}'..='\u{089F}'
-            | '\u{08CA}'..='\u{08E1}'
-            | '\u{08E3}'..='\u{08FF}'
-            // Syriac, Thaana, N'Ko, Samaritan, Mandaic.
-            | '\u{0711}'
-            | '\u{0730}'..='\u{074A}'
-            | '\u{07A6}'..='\u{07B0}'
-            | '\u{07EB}'..='\u{07F3}'
-            | '\u{07FD}'
-            | '\u{0816}'..='\u{0819}'
-            | '\u{081B}'..='\u{0823}'
-            | '\u{0825}'..='\u{0827}'
-            | '\u{0829}'..='\u{082D}'
-            | '\u{0859}'..='\u{085B}'
-            | '\u{1AB0}'..='\u{1AFF}'
-            | '\u{20D0}'..='\u{20FF}'
-            | '\u{FE20}'..='\u{FE2F}'
-            // Hanifi Rohingya, Adlam.
-            | '\u{10D24}'..='\u{10D27}'
-            | '\u{1E944}'..='\u{1E94A}'
-    )
-}
-
-fn piece_direction(piece: &str) -> Option<bool> {
-    piece.chars().find_map(direction)
-}
-
-/// Whether more of the line's letters read right to left than left to right.
-fn right_to_left(pieces: &[&str]) -> bool {
-    let (mut right, mut left) = (0_usize, 0_usize);
-    for ch in pieces.iter().flat_map(|piece| piece.chars()) {
-        match direction(ch) {
-            Some(true) => right += 1,
-            Some(false) if ch.is_alphabetic() => left += 1,
-            _ => {}
-        }
-    }
-    right > left
-}
-
-/// Puts a right-to-left line, drawn left to right, in reading order: runs
-/// of left-to-right text (Latin words, numbers) keep their order inside,
-/// everything else reads from the right. Spaces and punctuation between two
-/// left-to-right pieces belong to their run.
-fn reorder(pieces: &mut [&str]) {
-    let directions: Vec<Option<bool>> = pieces.iter().map(|piece| piece_direction(piece)).collect();
-    let left_to_right: Vec<bool> = (0..pieces.len())
-        .map(|at| {
-            directions[at].map_or_else(
-                || {
-                    let before = directions[..at].iter().rev().find_map(|direction| *direction);
-                    let after = directions[at + 1..].iter().find_map(|direction| *direction);
-                    before == Some(false) && after == Some(false)
-                },
-                |rtl| !rtl,
-            )
-        })
-        .collect();
-    pieces.reverse();
-    let mut at = 0;
-    let total = pieces.len();
-    while at < total {
-        // Reversed, so a left-to-right run is now backwards: turn it back.
-        if left_to_right[total - 1 - at] {
-            let start = at;
-            while at < total && left_to_right[total - 1 - at] {
-                at += 1;
-            }
-            pieces[start..at].reverse();
-        } else {
-            at += 1;
-        }
-    }
 }
 
 /// The document's pages, from their lines: blocks of the lines that are

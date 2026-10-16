@@ -20,71 +20,57 @@ fn page(lines: &[(&str, f64, f64, bool)]) -> PageLines {
     page
 }
 
-#[test]
-fn puts_right_to_left_lines_in_reading_order() {
-    // Each line as a PDF draws it, left to right, then as it reads.
-    const CASES: &[(&str, &[&str], &str)] = &[
-        ("Arabic", &["2", "0", "2", "4", " ", "ب", "ر", "ع"], "عرب 2024"),
-        ("Hebrew", &["2", "0", "2", "4", " ", "ם", "ו", "ל", "ש"], "שלום 2024"),
-        ("Persian", &["م", "ا", "ل", "س"], "سلام"),
-        ("Urdu", &["و", "د", "ر", "ا"], "اردو"),
-        ("Yiddish", &["ש", "י", "ד", "י", "י"], "יידיש"),
-        ("Syriac", &["ܐ", "ܡ", "ܠ", "ܫ"], "ܫܠܡܐ"),
-        ("Dhivehi, vowel signs on their letters", &["ހި", "ވެ", "ދި"], "ދިވެހި"),
-        ("N'Ko", &["ߏ", "ߞ", "ߒ"], "ߒߞߏ"),
-        ("Adlam", &["𞤥", "𞤢", "𞤤", "𞤣", "𞤀"], "𞤀𞤣𞤤𞤢𞤥"),
-        (
-            "Hebrew around Latin and digits",
-            &["I", "S", "O", " ", "9", "0", "0", "1", " ", "ר", "ו", "ש", "י", "א"],
-            "אישור ISO 9001",
-        ),
-    ];
-    for (script, drawn, reading) in CASES {
-        let mut pieces = drawn.to_vec();
-        assert!(right_to_left(&pieces), "{script}");
-        reorder(&mut pieces);
-        assert_eq!(pieces.concat(), *reading, "{script}");
+/// A page drawn left to right, glyph by glyph, from `(text, baseline)`
+/// lines: a space is a gap, not a glyph.
+fn drawn(lines: &[(&str, f64)]) -> PageText {
+    let mut page =
+        PageText { text: String::new(), glyphs: Vec::new(), images: 0, size: (612.0, 792.0) };
+    for &(text, y) in lines {
+        let mut x = 72.0;
+        for ch in text.chars() {
+            if ch != ' ' {
+                let start = u32::try_from(page.text.len()).unwrap_or(u32::MAX);
+                page.text.push(ch);
+                let end = u32::try_from(page.text.len()).unwrap_or(u32::MAX);
+                let text = start..end;
+                page.glyphs.push(Glyph {
+                    x,
+                    y,
+                    width: 5.0,
+                    size: 10.0,
+                    turns: 0,
+                    bold: false,
+                    text,
+                });
+            }
+            x += 6.0;
+        }
     }
-    let latin = ["H", "i", " ", "ب"];
-    assert!(!right_to_left(&latin));
+    page
 }
 
+/// `(text, baseline)` lines, drawn left to right.
+type Drawn = &'static [(&'static str, f64)];
+
 #[test]
-fn knows_the_right_to_left_scripts_and_their_marks() {
-    const MARKS: &[(char, bool)] = &[
-        ('\u{05B4}', true),
-        ('\u{064E}', true),
-        ('\u{0730}', true),
-        ('\u{07A8}', true),
-        ('\u{07EB}', true),
-        ('\u{0817}', true),
-        ('\u{0859}', true),
-        ('\u{10D24}', true),
-        ('\u{1E944}', true),
-        ('\u{05E9}', false),
-        ('a', false),
+fn reads_lines_in_their_page_direction() {
+    // (page, as drawn, as it reads)
+    const CASES: &[(&str, Drawn, &[&str])] = &[
+        (
+            "Arabic: its row of figures reads from the right",
+            &[("ةكرش ةداهش", 700.0), ("100 200 300", 680.0), ("Page 2", 30.0)],
+            &["شهادة شركة", "300 200 100", "Page 2"],
+        ),
+        (
+            "English: the same row as drawn",
+            &[("Certificate", 700.0), ("100 200 300", 680.0)],
+            &["Certificate", "100 200 300"],
+        ),
     ];
-    const DIRECTIONS: &[(char, Option<bool>)] = &[
-        ('\u{05D0}', Some(true)),
-        ('\u{0710}', Some(true)),
-        ('\u{0780}', Some(true)),
-        ('\u{07CA}', Some(true)),
-        ('\u{0800}', Some(true)),
-        ('\u{0840}', Some(true)),
-        ('\u{10D00}', Some(true)),
-        ('\u{1E900}', Some(true)),
-        ('\u{200F}', Some(true)),
-        ('\u{200E}', Some(false)),
-        ('a', Some(false)),
-        ('7', Some(false)),
-        ('\u{FEFF}', None),
-        (' ', None),
-    ];
-    for &(ch, expected) in DIRECTIONS {
-        assert_eq!(direction(ch), expected, "U+{:04X}", u32::from(ch));
-    }
-    for &(ch, expected) in MARKS {
-        assert_eq!(is_mark(ch), expected, "U+{:04X}", u32::from(ch));
+    for (case, drawn_lines, reading) in CASES {
+        let page = lines(&drawn(drawn_lines));
+        let texts: Vec<&str> = page.lines.iter().map(|line| page.text(line)).collect();
+        assert_eq!(texts, *reading, "{case}");
     }
 }
 

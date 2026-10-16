@@ -213,14 +213,22 @@ end
 ```
 
 - **PDF**: the text layer, placed glyph by glyph (fonts, encodings and
-  ToUnicode maps, forms, rotated pages), in reading order (right-to-left
-  lines too: Hebrew, Arabic, Persian, Urdu, Syriac, Dhivehi, N'Ko, Adlam,
-  their vowel marks kept on their letters), with headings by font size,
-  hyphenated line breaks rejoined, presentation forms (`ﬁ`, Arabic contextual forms) as plain letters, and
-  running headers and footers left out. Pages after the first start with
-  `<!-- page N -->`. Encrypted PDFs open when the user password is empty, as
-  it is for documents that only restrict printing or copying (RC4, AES-128,
-  AES-256).
+  ToUnicode maps, forms, rotated pages), in reading order, with headings by
+  font size, hyphenated line breaks rejoined, presentation forms (`ﬁ`,
+  Arabic contextual forms) as plain letters, and running headers and
+  footers left out. Pages after the first start with `<!-- page N -->`.
+  Encrypted PDFs open when the user password is empty, as it is for
+  documents that only restrict printing or copying (RC4, AES-128, AES-256).
+- **Right to left in PDFs** (Hebrew, Arabic, Persian, Urdu, Syriac,
+  Dhivehi, N'Ko, Adlam): a PDF records where glyphs go, not the order they
+  read in, so each line is put back in order the way the Unicode
+  bidirectional algorithm laid it out, with its page's direction for
+  context. An Arabic page's table rows read from the right, figures
+  included; an Arabic or Hebrew name in an English line reads forwards
+  inside that line; numbers stay whole (`2024-03-15`, `1,250.50`, `50%`,
+  `+98 21 5555 1234`, Arabic-Indic and Persian digits); vowel marks stay on
+  their letters. Not yet: pages set in several columns, whose lines run
+  together whatever their direction.
 - **XLSX**: each sheet as a table under its name, values as Excel shows them
   (dates as dates, percentages, 15 significant digits), formulas without a
   cached result as `=FORMULA`, then the sheet's comments.
