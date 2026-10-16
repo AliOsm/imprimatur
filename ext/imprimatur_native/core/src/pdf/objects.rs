@@ -1,6 +1,9 @@
 //! PDF file syntax: numbered objects, compressed streams, the
 //! cross-reference table and the trailer (ISO 32000-1, section 7).
 
+#[cfg(test)]
+mod tests;
+
 use std::fmt;
 use std::io::Write;
 
@@ -34,12 +37,24 @@ impl<W: Write> PdfWriter<W> {
         self.write_fmt(format_args!("{dictionary}\nendobj\n"))
     }
 
-    /// Writes a Flate-compressed stream object.
-    pub fn stream(&mut self, id: usize, data: &[u8]) -> Result<()> {
+    /// Writes a Flate-compressed stream object with optional dictionary entries.
+    /// Names omit the leading `/`; values are already PDF syntax. For example,
+    /// embedded TrueType fonts need `Length1` to hold the decoded byte count.
+    /// The writer supplies `Length` and `Filter`; entries must not repeat them.
+    pub fn stream(
+        &mut self,
+        id: usize,
+        data: &[u8],
+        entries: &[(&str, &dyn fmt::Display)],
+    ) -> Result<()> {
         let compressed = miniz_oxide::deflate::compress_to_vec_zlib(data, LEVEL);
         self.begin(id)?;
         let length = compressed.len();
-        self.write_fmt(format_args!("<< /Length {length} /Filter /FlateDecode >>\nstream\n"))?;
+        self.write_fmt(format_args!("<< /Length {length} /Filter /FlateDecode"))?;
+        for (name, value) in entries {
+            self.write_fmt(format_args!(" /{name} {value}"))?;
+        }
+        self.write(b" >>\nstream\n")?;
         self.write(&compressed)?;
         self.write(b"\nendstream\nendobj\n")
     }
