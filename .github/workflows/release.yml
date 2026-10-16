@@ -73,8 +73,9 @@ jobs:
           if-no-files-found: error
 
   # GitHub runs JavaScript actions (checkout, upload-artifact) in Alpine
-  # containers on x64 only, so this one builds through docker run; the build
-  # script installs upkg itself.
+  # containers on x64 only, so this one builds through docker run, which is
+  # no job container: setup-upkg resolves the upkg version here, and its
+  # setup.sh installs that version in the container.
   linux-arm64-musl:
     name: aarch64-linux-musl
     runs-on: ubuntu-26.04-arm
@@ -82,8 +83,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
+      - uses: seuros/setup-upkg@master
+        id: upkg
+        with:
+          update: "false"
+      - uses: actions/checkout@v7
+        with:
+          repository: seuros/setup-upkg
+          path: .setup-upkg
       - name: Build
-        run: docker run --rm -v "$PWD:/src" -w /src ruby:4.0-alpine tools/build_native_gem.sh aarch64-linux-musl
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src -e INPUT_VERSION=${{ steps.upkg.outputs.version }} \
+            ruby:4.0-alpine sh -c 'sh .setup-upkg/setup.sh && tools/build_native_gem.sh aarch64-linux-musl'
       - name: Installs without a toolchain and loads
         run: |
           docker run --rm -v "$PWD/pkg:/pkg:ro" ruby:4.0-alpine sh -c '
@@ -136,20 +147,31 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
+      # The VM runs commands, not actions: setup-upkg resolves the upkg
+      # version here, and its setup.sh installs that version in the VM.
+      - uses: seuros/setup-upkg@master
+        id: upkg
+        with:
+          update: "false"
+      - uses: actions/checkout@v7
+        with:
+          repository: seuros/setup-upkg
+          path: .setup-upkg
       - uses: vmactions/freebsd-vm@v1
+        env:
+          INPUT_VERSION: ${{ steps.upkg.outputs.version }}
         with:
           release: "15.1"
           usesh: true
           copyback: true
-          prepare: |
-            fetch -qo /tmp/upkg-install.sh https://raw.githubusercontent.com/seuros/upkg/master/install.sh
-            sh /tmp/upkg-install.sh
+          envs: INPUT_VERSION
+          run: |
+            sh .setup-upkg/setup.sh
             upkg install ruby40 git curl llvm gmake
             printf '%s\n' '#!/bin/sh' 'exec ruby40 -e "require %q(rubygems/gem_runner); Gem::GemRunner.new.run(ARGV)" -- "$@"' > /usr/local/bin/gem
             chmod +x /usr/local/bin/gem
             ln -sf ruby40 /usr/local/bin/ruby
             curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99
-          run: |
             . "$HOME/.cargo/env"
             LIBCLANG_PATH="$(ls -d /usr/local/llvm*/lib | sort -V | tail -1)"
             export LIBCLANG_PATH

@@ -65,23 +65,34 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
+      # The VM runs commands, not actions: setup-upkg resolves the upkg
+      # version here, and its setup.sh installs that version in the VM.
+      - uses: seuros/setup-upkg@master
+        id: upkg
+        with:
+          update: "false"
+      - uses: actions/checkout@v7
+        with:
+          repository: seuros/setup-upkg
+          path: .setup-upkg
       - uses: vmactions/freebsd-vm@v1
+        env:
+          INPUT_VERSION: ${{ steps.upkg.outputs.version }}
         with:
           release: "15.1"
           usesh: true
           copyback: false
+          envs: INPUT_VERSION
           # ruby40 ships RubyGems but not the gem command (FreeBSD packages it
           # only for its default Ruby). llvm: libclang for bindgen. rustup: the
           # crate's rust-version.
-          prepare: |
-            fetch -qo /tmp/upkg-install.sh https://raw.githubusercontent.com/seuros/upkg/master/install.sh
-            sh /tmp/upkg-install.sh
+          run: |
+            sh .setup-upkg/setup.sh
             upkg install ruby40 git curl llvm gmake
             printf '%s\n' '#!/bin/sh' 'exec ruby40 -e "require %q(rubygems/gem_runner); Gem::GemRunner.new.run(ARGV)" -- "$@"' > /usr/local/bin/gem
             chmod +x /usr/local/bin/gem
             ln -sf ruby40 /usr/local/bin/ruby
             curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99
-          run: |
             . "$HOME/.cargo/env"
             LIBCLANG_PATH="$(ls -d /usr/local/llvm*/lib | sort -V | tail -1)"
             export LIBCLANG_PATH

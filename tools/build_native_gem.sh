@@ -10,7 +10,8 @@ set -eu
 platform="$1"
 upkg_installer="https://raw.githubusercontent.com/seuros/upkg/master/install.sh"
 
-# Job containers get upkg from setup-upkg. Under plain docker run, install it:
+# CI gets upkg from setup-upkg, in job containers and docker run alike.
+# Anywhere else (a local docker run), install it:
 # Debian images ship curl, Alpine only busybox wget. Download first: piped
 # into sh, a failed download would run an empty script and succeed.
 if ! command -v upkg >/dev/null 2>&1; then
