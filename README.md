@@ -273,6 +273,25 @@ Imprimatur.images("scan.pdf") do |image|
 end
 ```
 
+## Zip archives
+
+Archives of any files, for what is not a document (an export of an order's
+files, a download to unpack). Entries keep their modification times and
+comments, files are streamed from disk, and archives past 4 GiB use ZIP64;
+reading is bounded per entry. Both run without the GVL.
+
+```ruby
+Imprimatur::Zip.write("export.zip") do |zip|
+  zip.add_file("contracts/0contract.pdf", "/tmp/contract.pdf", comment: "Contract")
+  zip.add("manifest.json", JSON.generate(manifest))
+end
+
+Imprimatur::Zip.open("geolite.zip") do |zip|
+  csv = zip.read(zip.glob("**/*-Locations-en.csv").first) # max_bytes: 1 GiB by default
+  zip.extract("README.txt", "/tmp/readme.txt")
+end
+```
+
 ## Command line
 
 The same reader as a static binary, for scripts and agents that would

@@ -9,6 +9,7 @@ require_relative 'imprimatur/validation'
 require_relative 'imprimatur/xlsx'
 require_relative 'imprimatur/document'
 require_relative 'imprimatur/reader'
+require_relative 'imprimatur/zip'
 
 # Document authoring with a native core: XLSX workbooks, and PDF and DOCX from
 # one document model.

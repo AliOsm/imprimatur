@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 workspace = true
 
 [dependencies]
-imprimatur = { workspace = true, features = ["json"] }
+imprimatur = { workspace = true, features = ["archive", "json"] }
 serde_json.workspace = true
 magnus.workspace = true
 rb-sys.workspace = true

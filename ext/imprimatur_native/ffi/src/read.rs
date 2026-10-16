@@ -13,10 +13,8 @@ use imprimatur::read::{Limits, content, images, json, markdown};
 use magnus::{Error, IntoValue, RArray, RString, Ruby};
 use serde_json::Value as Json;
 
+use crate::blocking::MAX_ATTEMPTS;
 use crate::{argument_error, domain_error};
-
-/// Reads interrupted without anything to raise are retried this many times.
-const MAX_ATTEMPTS: usize = 64;
 
 /// A read of a document's bytes within limits, run without the GVL.
 type Job<T> = fn(&[u8], &Limits) -> imprimatur::Result<T>;

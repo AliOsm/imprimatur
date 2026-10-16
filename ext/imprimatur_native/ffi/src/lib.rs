@@ -3,6 +3,8 @@
 //! [`imprimatur::xlsx::Format`]. The Ruby DSL in `lib/imprimatur/xlsx.rb`
 //! drives them; sheets cross as indices.
 
+mod archive;
+mod blocking;
 mod convert;
 mod document;
 mod read;
@@ -284,6 +286,16 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     native.define_singleton_method("markdown", function!(read::markdown_native, 4))?;
     native.define_singleton_method("content", function!(read::content_native, 4))?;
     native.define_singleton_method("images", function!(read::images_native, 4))?;
+    let zip_writer = native.define_class("ZipWriter", ruby.class_object())?;
+    zip_writer.define_singleton_method("new", function!(archive::ZipWriter::new, 1))?;
+    zip_writer.define_method("add_file", method!(archive::ZipWriter::add_file, 3))?;
+    zip_writer.define_method("add", method!(archive::ZipWriter::add, 3))?;
+    zip_writer.define_method("finish", method!(archive::ZipWriter::finish, 0))?;
+    let zip_reader = native.define_class("ZipReader", ruby.class_object())?;
+    zip_reader.define_singleton_method("new", function!(archive::ZipReader::new, 1))?;
+    zip_reader.define_method("names", method!(archive::ZipReader::names, 0))?;
+    zip_reader.define_method("read", method!(archive::ZipReader::read, 2))?;
+    zip_reader.define_method("extract", method!(archive::ZipReader::extract, 3))?;
     document::define(ruby, native)?;
     let workbook = native.define_class("Workbook", ruby.class_object())?;
     workbook.define_singleton_method("new", function!(NativeWorkbook::new, 0))?;

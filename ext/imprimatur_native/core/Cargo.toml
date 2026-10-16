@@ -23,11 +23,16 @@ miniz_oxide = "0.9.1"
 serde_json = { version = "1.0.154", optional = true }
 sha2 = "0.11.1"
 thiserror = "2.0.21"
+zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"], optional = true }
 
 [features]
 # `read::json`: content and images as JSON, the schema the command line and
 # the Ruby binding share.
 json = ["dep:serde_json"]
+# `archive`: zip archives of any files (written with their times and
+# comments, ZIP64 when large; read within limits), through the `zip` crate.
+archive = ["dep:zip"]
 
 [dev-dependencies]
+tempfile = "3"
 zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }

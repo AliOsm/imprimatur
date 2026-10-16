@@ -238,6 +238,7 @@ dependencies = [
  "miniz_oxide",
  "serde_json",
  "sha2",
+ "tempfile",
  "thiserror",
  "zip",
 ]

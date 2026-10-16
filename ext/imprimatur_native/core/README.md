@@ -100,6 +100,11 @@ assert!(found.is_empty(), "no pictures in this one");
 Dependencies: `miniz_oxide`, `crc32fast` and `thiserror`; reading encrypted
 PDFs adds `md-5`, `sha2` and `aes`.
 
+Two features add what the core does not need: `json` (`read::json`, the
+schema the command line and the Ruby gem print, through `serde_json`) and
+`archive` (`archive::{Writer, Archive}`: zip archives of any files, with
+times, comments and ZIP64, through the `zip` crate).
+
 ## License
 
 BSD 3-Clause

@@ -18,6 +18,8 @@
 //! # Ok::<(), imprimatur::Error>(())
 //! ```
 
+#[cfg(feature = "archive")]
+pub mod archive;
 pub mod doc;
 mod docx;
 mod error;
