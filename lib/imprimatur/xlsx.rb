@@ -175,8 +175,8 @@ module Imprimatur
       end
 
       # Sizes the columns without a width of their own to their widest cell
-      # when the workbook is written, as caxlsx did: +(characters + 3) x
-      # points / 10+, bold cells one and a half times wider, at most 255.
+      # when the workbook is written, estimated as +(characters + 3) x points
+      # / 10+, bold cells one and a half times wider, at most 255.
       # Formulas are left out.
       #
       # @return [self]

@@ -179,7 +179,7 @@ impl Worksheet {
     }
 
     /// Sizes the columns without a width of their own to their widest cell,
-    /// estimated from its characters and font as caxlsx does:
+    /// estimated from its characters and font as
     /// `(characters + 3) × points / 10`, bold one and a half times wider.
     pub const fn set_autofit(&mut self, autofit: bool) -> &mut Self {
         self.autofit = autofit;

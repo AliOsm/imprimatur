@@ -1,6 +1,6 @@
-//! Column widths from the cells, the way caxlsx sized columns: there is no
-//! font to measure text with, so a column is as wide as its widest cell's
-//! character count says, scaled by that cell's font.
+//! Column widths from the cells. There is no font to measure text with, so
+//! a column is as wide as its widest cell's character count says, scaled by
+//! that cell's font.
 
 #[cfg(test)]
 mod tests;

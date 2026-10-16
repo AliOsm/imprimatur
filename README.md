@@ -113,7 +113,7 @@ end
 ```
 
 `autofit` (or `sheet.autofit!`) sizes each column without a width of its own
-to its widest cell, the way caxlsx did: `(characters + 3) × points / 10`,
+to its widest cell, estimated as `(characters + 3) × points / 10`,
 bold cells one and a half times wider, at most 255. A text counts its longest
 line, a date `yyyy-mm-dd`; formulas are left out, their results unknown.
 
