@@ -22,6 +22,7 @@
 //! ```
 
 mod paragraph;
+pub(crate) mod picture;
 mod table;
 #[cfg(test)]
 mod tests;
@@ -31,25 +32,49 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 pub use paragraph::{Paragraph, Run};
+pub use picture::Picture;
 pub use table::Table;
 
 use crate::script::Counts;
 use crate::{Error, Result};
 
-/// Paper size; pages are portrait.
+/// Paper size; A4 and Letter pages are portrait.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum PageSize {
     #[default]
     A4,
     Letter,
+    /// Width and height in hundredths of a point; see [`PageSize::custom`].
+    Custom(u32, u32),
 }
 
 impl PageSize {
+    /// A page of this width and height, in points (1/72 inch): 36 to 1584
+    /// (half an inch to 22 inches), as both PDF and Word take them.
+    ///
+    /// # Errors
+    /// [`Error::InvalidPageSize`] outside that range.
+    pub fn custom(width: f64, height: f64) -> Result<Self> {
+        let side = |points: f64| {
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "36 to 1584"
+            )]
+            (36.0..=1584.0).contains(&points).then(|| (points * 100.0).round() as u32)
+        };
+        side(width)
+            .zip(side(height))
+            .map(|(width, height)| Self::Custom(width, height))
+            .ok_or(Error::InvalidPageSize(width, height))
+    }
+
     /// Width and height in PDF points (1/72 inch).
-    pub(crate) const fn points(self) -> (f64, f64) {
+    pub(crate) fn points(self) -> (f64, f64) {
         match self {
             Self::A4 => (595.276, 841.89),
             Self::Letter => (612.0, 792.0),
+            Self::Custom(width, height) => (f64::from(width) / 100.0, f64::from(height) / 100.0),
         }
     }
 
@@ -58,6 +83,7 @@ impl PageSize {
         match self {
             Self::A4 => (11_906, 16_838),
             Self::Letter => (12_240, 15_840),
+            Self::Custom(width, height) => (width / 5, height / 5),
         }
     }
 }
@@ -69,6 +95,7 @@ pub enum Block {
     Heading { level: u8, text: String },
     Paragraph(Paragraph),
     Table(Table),
+    Picture(Picture),
     PageBreak,
 }
 
@@ -79,6 +106,8 @@ pub struct Document {
     blocks: Vec<Block>,
     page_size: PageSize,
     page_numbers: bool,
+    /// Hundredths of a point; one inch when unset.
+    margin: Option<u32>,
 }
 
 impl Document {
@@ -89,6 +118,43 @@ impl Document {
 
     pub const fn set_page_size(&mut self, size: PageSize) -> &mut Self {
         self.page_size = size;
+        self
+    }
+
+    /// The margin on every side, in points: one inch (72) unless set.
+    ///
+    /// # Errors
+    /// [`Error::InvalidMargin`] outside 0 to 144 points.
+    pub fn set_margin(&mut self, points: f64) -> Result<&mut Self> {
+        #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "0 to 144")]
+        let margin = (0.0..=144.0)
+            .contains(&points)
+            .then(|| (points * 100.0).round() as u32)
+            .ok_or(Error::InvalidMargin(points))?;
+        self.margin = Some(margin);
+        Ok(self)
+    }
+
+    /// The margin on every side, in points.
+    #[must_use]
+    pub fn margin(&self) -> f64 {
+        self.margin.map_or(72.0, |margin| f64::from(margin) / 100.0)
+    }
+
+    /// The width and height between the margins, in points.
+    ///
+    /// # Errors
+    /// [`Error::InvalidMargin`] when the margins leave no room.
+    pub(crate) fn room(&self) -> Result<(f64, f64)> {
+        let (width, height) = self.page_size.points();
+        let margin = self.margin();
+        let room = (2.0f64.mul_add(-margin, width), 2.0f64.mul_add(-margin, height));
+        (room.0 >= 1.0 && room.1 >= 1.0).then_some(room).ok_or(Error::InvalidMargin(margin))
+    }
+
+    /// A picture, in the flow of the text.
+    pub fn picture(&mut self, picture: Picture) -> &mut Self {
+        self.blocks.push(Block::Picture(picture));
         self
     }
 
@@ -156,7 +222,7 @@ impl Document {
                     paragraph.runs.iter().for_each(|run| counts.add(&run.text));
                 }
                 Block::Table(table) => table.count(&mut counts),
-                Block::PageBreak => {}
+                Block::Picture(_) | Block::PageBreak => {}
             }
         }
         counts.right_to_left()

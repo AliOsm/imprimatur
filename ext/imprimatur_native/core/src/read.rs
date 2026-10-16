@@ -39,6 +39,8 @@ pub use content::{
     Text, Validation, Value,
 };
 pub use image::{Image, ImageFormat, ImageLocation};
+#[cfg(test)]
+pub(crate) use image::{PngColor, png};
 
 use crate::zip::reader::ZipReader;
 use crate::{Error, Result};

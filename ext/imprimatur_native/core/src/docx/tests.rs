@@ -1,5 +1,6 @@
-use crate::doc::{Document, Paragraph, Run, Table};
+use crate::doc::{Document, Paragraph, Picture, Run, Table};
 use crate::opc::RELATIONSHIPS;
+use crate::read::{PngColor, png};
 use crate::style::{Align, Color, TextDirection};
 use crate::test_support::{part, text_parts};
 
@@ -20,6 +21,8 @@ fn sample() -> Document {
     .unwrap();
     doc.push_paragraph(Paragraph::new().text("שלום").direction(TextDirection::RightToLeft))
         .unwrap();
+    let logo = png(2, 1, PngColor::Gray, 8, None, &[0, 255]);
+    doc.picture(Picture::new(logo).unwrap().width(72.0).unwrap().align(Align::Center));
     doc.page_break();
     doc.table(Table::new([["Region", "Q1"], ["North", "12.5"]]).header()).unwrap();
     doc
@@ -36,10 +39,25 @@ fn writes_a_complete_package() {
             "_rels/.rels",
             "word/document.xml",
             "word/_rels/document.xml.rels",
-            "word/styles.xml"
+            "word/styles.xml",
+            "word/media/image1.png"
         ]
     );
-    assert!(part(&parts, "[Content_Types].xml").contains("wordprocessingml.document.main+xml"));
+    let types = part(&parts, "[Content_Types].xml");
+    assert!(types.contains("wordprocessingml.document.main+xml"));
+    assert!(types.contains(r#"<Default Extension="png" ContentType="image/png"/>"#), "{types}");
+    let relationships = part(&parts, "word/_rels/document.xml.rels");
+    assert!(relationships.contains(r#"Id="rId2" Type="#), "{relationships}");
+    assert!(relationships.contains(r#"/image" Target="media/image1.png""#), "{relationships}");
+    // 72 by 36 points, in EMUs, centered, its file rId2.
+    let body = part(&parts, "word/document.xml");
+    for expected in [
+        r#"<w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline"#,
+        r#"<wp:extent cx="914400" cy="457200"/>"#,
+        r#"<a:blip r:embed="rId2"/>"#,
+    ] {
+        assert!(body.contains(expected), "missing {expected}\n{body}");
+    }
     assert!(part(&parts, "word/styles.xml").contains(r#"w:styleId="Heading1""#));
 }
 

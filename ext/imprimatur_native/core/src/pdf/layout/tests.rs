@@ -2,9 +2,9 @@ use super::*;
 
 #[test]
 fn keeps_a_heading_with_what_follows() {
-    let mut layout = Layout::new(PageSize::A4);
+    let mut layout = Layout::new(&Document::new()).unwrap();
     // Fill the page to just above the bottom margin.
-    let near_bottom = MARGIN + 30.0;
+    let near_bottom = layout.margin + 30.0;
     for _ in 0..100 {
         if layout.y <= near_bottom {
             break;

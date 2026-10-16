@@ -7,6 +7,7 @@ mod layout;
 #[rustfmt::skip]
 pub mod metrics;
 mod objects;
+mod picture;
 #[cfg(test)]
 mod tests;
 
@@ -26,12 +27,17 @@ const FIRST_FONT: usize = 3;
 const INFO: usize = FIRST_FONT + Face::ALL.len();
 
 pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
-    let mut layout = Layout::new(document.page_size());
+    let mut layout = Layout::new(document)?;
+    let mut pictures = Vec::new();
     for block in document.blocks() {
         match block {
             Block::Heading { level, text } => layout.heading(*level, text)?,
             Block::Paragraph(paragraph) => layout.paragraph(paragraph)?,
             Block::Table(table) => layout.table(table)?,
+            Block::Picture(picture) => {
+                layout.picture(picture, pictures.len());
+                pictures.push(picture);
+            }
             Block::PageBreak => layout.page_break(),
         }
     }
@@ -67,6 +73,23 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
         }
         Ok(())
     });
+    // Pictures follow the pages: an image, then its soft mask if it has one.
+    let mut ids = Vec::with_capacity(pictures.len());
+    let mut next = page_id(pages.len());
+    for picture in &pictures {
+        ids.push(next);
+        next += 1 + usize::from(picture::has_mask(picture));
+    }
+    let images = fmt::from_fn(|f| {
+        if !ids.is_empty() {
+            f.write_str("/XObject << ")?;
+            for (index, id) in ids.iter().enumerate() {
+                write!(f, "/Im{index} {id} 0 R ")?;
+            }
+            f.write_str(">> ")?;
+        }
+        Ok(())
+    });
     let (width, height) = (Num(width), Num(height));
     for (index, content) in pages.iter().enumerate() {
         let id = page_id(index);
@@ -74,11 +97,16 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
             id,
             format_args!(
                 "<< /Type /Page /Parent {PAGES} 0 R /MediaBox [0 0 {width} {height}] \
-                 /Resources << /Font << {fonts}>> >> /Contents {} 0 R >>",
+                 /Resources << /Font << {fonts}>> {images}>> /Contents {} 0 R >>",
                 id + 1
             ),
         )?;
         pdf.stream(id + 1, content, &[])?;
+    }
+    for (picture, id) in pictures.into_iter().zip(ids) {
+        for (offset, stream) in (0..).zip(picture::streams(picture, id + 1)?) {
+            pdf.stored(id + offset, format_args!("{}", stream.dictionary), &stream.data)?;
+        }
     }
     pdf.finish(CATALOG, INFO)
 }

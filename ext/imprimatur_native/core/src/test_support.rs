@@ -16,11 +16,12 @@ pub fn read_zip(bytes: Vec<u8>) -> Vec<(String, Vec<u8>)> {
         .collect()
 }
 
-/// Every entry of a zip archive as text, by name, read as [`read_zip`] does.
+/// Every entry of a zip archive as text, by name, read as [`read_zip`] does;
+/// media come out garbled, for their names.
 pub fn text_parts(bytes: Vec<u8>) -> Vec<(String, String)> {
     read_zip(bytes)
         .into_iter()
-        .map(|(name, data)| (name, String::from_utf8(data).unwrap()))
+        .map(|(name, data)| (name, String::from_utf8_lossy(&data).into_owned()))
         .collect()
 }
 

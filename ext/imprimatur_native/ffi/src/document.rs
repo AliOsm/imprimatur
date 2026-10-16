@@ -2,7 +2,7 @@
 
 use std::cell::RefCell;
 
-use imprimatur::doc::{Document, PageSize, Paragraph, Run, Table};
+use imprimatur::doc::{Document, PageSize, Paragraph, Picture, Run, Table};
 use imprimatur::style::Color;
 use magnus::{Error, RModule, RString, Ruby, function, method, prelude::*};
 
@@ -40,7 +40,51 @@ impl NativeDocument {
             &size,
             &[("a4", PageSize::A4), ("letter", PageSize::Letter)],
         )?;
+        Self::page(ruby, rb_self, size, page_numbers)
+    }
+
+    /// A page `width` by `height` points.
+    fn set_page_points(
+        ruby: &Ruby,
+        rb_self: &Self,
+        width: f64,
+        height: f64,
+        page_numbers: bool,
+    ) -> Result<(), Error> {
+        let size = PageSize::custom(width, height).or_raise(ruby)?;
+        Self::page(ruby, rb_self, size, page_numbers)
+    }
+
+    fn page(ruby: &Ruby, rb_self: &Self, size: PageSize, page_numbers: bool) -> Result<(), Error> {
         borrow(ruby, &rb_self.0, "document")?.set_page_size(size).set_page_numbers(page_numbers);
+        Ok(())
+    }
+
+    fn set_margin(ruby: &Ruby, rb_self: &Self, points: f64) -> Result<(), Error> {
+        borrow(ruby, &rb_self.0, "document")?.set_margin(points).or_raise(ruby)?;
+        Ok(())
+    }
+
+    /// A PNG or JPEG from its bytes, `width` and `height` in points.
+    fn picture(
+        ruby: &Ruby,
+        rb_self: &Self,
+        data: RString,
+        width: Option<f64>,
+        height: Option<f64>,
+        align: Option<String>,
+    ) -> Result<(), Error> {
+        let mut picture = Picture::new(crate::bytes(data)).or_raise(ruby)?;
+        if let Some(width) = width {
+            picture = picture.width(width).or_raise(ruby)?;
+        }
+        if let Some(height) = height {
+            picture = picture.height(height).or_raise(ruby)?;
+        }
+        if let Some(align) = align {
+            picture = picture.align(keyword(ruby, "align", &align, &ALIGNS)?);
+        }
+        borrow(ruby, &rb_self.0, "document")?.picture(picture);
         Ok(())
     }
 
@@ -128,6 +172,9 @@ pub fn define(ruby: &Ruby, native: RModule) -> Result<(), Error> {
     let class = native.define_class("Document", ruby.class_object())?;
     class.define_singleton_method("new", function!(NativeDocument::new, 0))?;
     class.define_method("set_page", method!(NativeDocument::set_page, 2))?;
+    class.define_method("set_page_points", method!(NativeDocument::set_page_points, 3))?;
+    class.define_method("set_margin", method!(NativeDocument::set_margin, 1))?;
+    class.define_method("picture", method!(NativeDocument::picture, 4))?;
     class.define_method("heading", method!(NativeDocument::heading, 2))?;
     class.define_method("paragraph", method!(NativeDocument::paragraph, 3))?;
     class.define_method("table", method!(NativeDocument::table, 2))?;

@@ -19,6 +19,14 @@ class DocumentTest < Minitest::Test
     end
   end
 
+  # A gray PNG of 8-bit +rows+.
+  def png(rows)
+    chunk = ->(kind, data) { [data.bytesize].pack('N') + kind + data + [Zlib.crc32(kind + data)].pack('N') }
+    header = [rows.first.size, rows.size, 8, 0, 0, 0, 0].pack('NNC5')
+    pixels = Zlib::Deflate.deflate(rows.map { "\0#{it.pack('C*')}" }.join)
+    "\x89PNG\r\n\x1a\n".b + chunk.call('IHDR', header) + chunk.call('IDAT', pixels) + chunk.call('IEND', '')
+  end
+
   # The decompressed content streams of a PDF, one per page.
   def pdf_pages(bytes)
     bytes.scan(/stream\n(.*?)\nendstream/m).map { Zlib::Inflate.inflate(it.first).force_encoding(Encoding::BINARY) }
@@ -74,6 +82,18 @@ class DocumentTest < Minitest::Test
     assert_includes body, '<w:bidi/></w:sectPr>', 'pages laid out right to left'
     error = assert_raises(Imprimatur::Error) { doc.to_pdf }
     assert_match(/U\+0645.*Helvetica/, error.message)
+  end
+
+  def test_places_images_on_pages_of_any_size
+    code = png([[0, 255], [255, 0]])
+    pdf = Imprimatur.pdf(page_size: [200, 200], margin: 10) { it.image code, width: 180 }
+    image = Imprimatur.images(pdf).first
+
+    assert_equal [2, 2, 1], [image.width, image.height, image.page]
+    assert_equal({ left: 10.0, top: 10.0, right: 190.0, bottom: 190.0 }, image.bounds)
+    assert_includes ZipReader.entries(Imprimatur.docx { it.image(code, align: :center) }).keys, 'word/media/image1.png'
+    assert_raises(Imprimatur::Error) { Imprimatur.pdf { it.image "GIF89a\0".b } }
+    assert_raises(Imprimatur::Error) { Imprimatur::Document.new(page_size: [10, 10]) }
   end
 
   def test_rejects_invalid_content

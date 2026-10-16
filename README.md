@@ -187,6 +187,7 @@ doc.paragraph do |p|
 end
 doc.paragraph "Figures are unaudited.", italic: true, align: :center
 doc.table [["Region", "Q1"], ["North", 12_500.5]], header: true
+doc.image "chart.png", width: 300, align: :center
 doc.page_break
 doc.paragraph "Appendix."
 
@@ -194,13 +195,20 @@ doc.save_pdf("report.pdf")
 doc.save_docx("report.docx")
 
 Imprimatur.pdf("memo.pdf") { it.paragraph "Or in one go." }    # Imprimatur.docx alike
+Imprimatur.pdf(page_size: [200, 200], margin: 10) { it.image qr_png, width: 180 }
 ```
 
 - Headings 1 to 3 (real Word heading styles in DOCX), paragraphs of runs
   (bold, italic, underline, color), alignment, `\n` line breaks and tabs.
 - Tables: equal columns, borders, a shaded header row that repeats on every
   page; cells are converted with `to_s`.
-- Page breaks, A4 or Letter, `1 / N` page numbers.
+- Pictures: PNG or JPEG (a path, the bytes or an IO), at `width:` or
+  `height:` points (the other follows), or else at 96 pixels an inch, never
+  larger than the page; `align:` like a paragraph. In PDF a JPEG and an
+  opaque PNG are stored as they are, a PNG with alpha gets a soft mask.
+  Interlaced PNGs are refused.
+- Page breaks; A4, Letter or `page_size: [width, height]` in points (36 to
+  1584); `margin:` in points (one inch unless set); `1 / N` page numbers.
 - Right to left without being told: a paragraph, heading or table cell
   reads in the direction of its first letter (right aligned, and `w:bidi` in
   DOCX), figures alone in their table's or document's, each run in its own;

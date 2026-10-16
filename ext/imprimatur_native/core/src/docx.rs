@@ -2,13 +2,14 @@
 //! Word paragraphs, runs and tables, with real Heading 1-3 styles so Word's
 //! navigation pane and table of contents see them.
 
+mod picture;
 #[cfg(test)]
 mod tests;
 
 use std::io::Write;
 
 use crate::Result;
-use crate::doc::{Block, Document, Paragraph, Run, Table};
+use crate::doc::{Block, Document, Paragraph, Picture, Run, Table};
 use crate::opc;
 use crate::style::{Align, Color, TextDirection};
 use crate::xml::XmlWriter;
@@ -16,39 +17,58 @@ use crate::zip::ZipWriter;
 
 const W_NS: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const WORD_TYPE: &str = "application/vnd.openxmlformats-officedocument.wordprocessingml";
-/// One inch, Word's default margin, in twips.
-const MARGIN: u32 = 1_440;
 /// A header row's shading.
 const HEADER_FILL: &str = "D9E2F3";
 
 pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
+    let room = document.room()?;
     let footer = document.has_page_numbers();
-    let mut parts = vec![("styles", "styles.xml")];
+    let mut parts = vec![("styles", "styles.xml".to_owned())];
     if footer {
-        parts.push(("footer", "footer1.xml"));
+        parts.push(("footer", "footer1.xml".to_owned()));
+    }
+    // Pictures' files follow, their relationships numbered from here.
+    let first_media = parts.len() + 1;
+    let pictures: Vec<&Picture> = document
+        .blocks()
+        .iter()
+        .filter_map(|block| if let Block::Picture(picture) = block { Some(picture) } else { None })
+        .collect();
+    for (number, picture) in (1..).zip(&pictures) {
+        parts.push(("image", picture::file_name(picture, number)));
     }
     let mut zip = ZipWriter::new(out);
-    zip.add("[Content_Types].xml", content_types(footer).as_bytes())?;
+    zip.add("[Content_Types].xml", content_types(footer, &pictures).as_bytes())?;
     let package = opc::relationships(&[("officeDocument", "word/document.xml")]);
     zip.add("_rels/.rels", package.as_bytes())?;
-    zip.add("word/document.xml", body(document).as_bytes())?;
+    zip.add("word/document.xml", body(document, room, first_media).as_bytes())?;
     zip.add("word/_rels/document.xml.rels", opc::relationships(&parts).as_bytes())?;
     zip.add("word/styles.xml", styles().as_bytes())?;
     if footer {
         zip.add("word/footer1.xml", page_number_footer().as_bytes())?;
     }
+    for (number, picture) in (1..).zip(&pictures) {
+        zip.add(&format!("word/{}", picture::file_name(picture, number)), &picture.data)?;
+    }
     zip.finish()
 }
 
-/// One override per part: the document, its styles and the footer.
-fn content_types(footer: bool) -> String {
+/// One override per part: the document, its styles and the footer; the
+/// pictures' types by extension.
+fn content_types(footer: bool, pictures: &[&Picture]) -> String {
     let mut parts = vec![("/word/document.xml", "document.main"), ("/word/styles.xml", "styles")];
     if footer {
         parts.push(("/word/footer1.xml", "footer"));
     }
     let overrides: Vec<(&str, String)> =
         parts.into_iter().map(|(part, kind)| (part, format!("{WORD_TYPE}.{kind}+xml"))).collect();
-    opc::content_types(&[], &overrides)
+    let mut defaults = Vec::new();
+    for (extension, content_type) in [("png", "image/png"), ("jpeg", "image/jpeg")] {
+        if pictures.iter().any(|picture| picture::extension(picture) == extension) {
+            defaults.push((extension, content_type));
+        }
+    }
+    opc::content_types(&defaults, &overrides)
 }
 
 /// `word/footer1.xml`: a centered `PAGE / NUMPAGES`, which Word computes.
@@ -82,13 +102,21 @@ fn page_number_footer() -> String {
     xml.finish()
 }
 
-fn body(document: &Document) -> String {
+fn body(document: &Document, room: (f64, f64), first_media: usize) -> String {
     // What reads in no direction of its own (figures, punctuation) takes the
     // document's.
     let rtl = document.reads_right_to_left();
     let mut xml = XmlWriter::new();
-    xml.open("w:document", &[("xmlns:w", W_NS), ("xmlns:r", opc::RELATIONSHIPS)]);
+    let namespaces = [
+        ("xmlns:w", W_NS),
+        ("xmlns:r", opc::RELATIONSHIPS),
+        ("xmlns:wp", picture::WP_NS),
+        ("xmlns:a", picture::A_NS),
+        ("xmlns:pic", picture::PIC_NS),
+    ];
+    xml.open("w:document", &namespaces);
     xml.open("w:body", &[]);
+    let mut pictures = 0;
     for block in document.blocks() {
         match block {
             Block::Heading { level, text } => {
@@ -97,6 +125,11 @@ fn body(document: &Document) -> String {
             }
             Block::Paragraph(content) => paragraph(&mut xml, content, rtl),
             Block::Table(content) => table(&mut xml, content, document, rtl),
+            Block::Picture(content) => {
+                pictures += 1;
+                let relationship = format!("rId{}", first_media + pictures - 1);
+                picture::paragraph(&mut xml, content, room, pictures, &relationship);
+            }
             Block::PageBreak => {
                 xml.open("w:p", &[]);
                 xml.open("w:r", &[]);
@@ -226,7 +259,7 @@ fn table(xml: &mut XmlWriter, content: &Table, document: &Document, document_rtl
     let rtl = right_to_left(content.direction(), document_rtl);
     let columns = content.columns();
     let (page_width, _) = document.page_size().twips();
-    let usable = page_width - 2 * MARGIN;
+    let usable = page_width - 2 * margin(document);
     // Never 0: a table has at least one column.
     let column_width = (usable / u32::try_from(columns).unwrap_or(1).max(1)).to_string();
 
@@ -271,9 +304,17 @@ fn table(xml: &mut XmlWriter, content: &Table, document: &Document, document_rtl
     xml.close("w:tbl");
 }
 
+/// The document's margin in twips.
+fn margin(document: &Document) -> u32 {
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "0 to 2880")]
+    let twips = (document.margin() * 20.0).round() as u32;
+    twips
+}
+
 fn section(xml: &mut XmlWriter, document: &Document, rtl: bool) {
     let (width, height) = document.page_size().twips();
-    let (width, height, margin) = (width.to_string(), height.to_string(), MARGIN.to_string());
+    let (width, height, margin) =
+        (width.to_string(), height.to_string(), margin(document).to_string());
     xml.open("w:sectPr", &[]);
     if document.has_page_numbers() {
         // rId2: the footer, after the styles (see `write`).

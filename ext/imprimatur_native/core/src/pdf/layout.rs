@@ -8,13 +8,11 @@ use std::fmt::{self, Arguments, Write as _};
 
 use super::font::Face;
 use super::objects::{Num, push_string};
-use crate::doc::{PageSize, Paragraph, Table};
+use crate::doc::{Document, Paragraph, Picture, Table};
 use crate::style::{Align, Color};
 use crate::{Error, Result};
 use wrap::{Line, Look, wrap};
 
-/// One inch on every side.
-const MARGIN: f64 = 72.0;
 const BODY_SIZE: f64 = 11.0;
 const TABLE_SIZE: f64 = 10.0;
 /// Line height as a multiple of the font size.
@@ -32,6 +30,7 @@ const HEADINGS: [(f64, f64, Option<Color>); 3] =
 pub struct Layout {
     width: f64,
     height: f64,
+    margin: f64,
     pages: Vec<Vec<u8>>,
     /// The top of the free space on the current page, from the bottom edge.
     y: f64,
@@ -39,9 +38,15 @@ pub struct Layout {
 }
 
 impl Layout {
-    pub fn new(size: PageSize) -> Self {
-        let (width, height) = size.points();
-        Self { width, height, pages: vec![Vec::new()], y: height - MARGIN, blank: true }
+    /// The document's pages, between its margins.
+    ///
+    /// # Errors
+    /// [`Error::InvalidMargin`] when the margins leave no room.
+    pub fn new(document: &Document) -> Result<Self> {
+        document.room()?;
+        let (width, height) = document.page_size().points();
+        let margin = document.margin();
+        Ok(Self { width, height, margin, pages: vec![Vec::new()], y: height - margin, blank: true })
     }
 
     pub const fn page_size(&self) -> (f64, f64) {
@@ -49,7 +54,7 @@ impl Layout {
     }
 
     const fn content_width(&self) -> f64 {
-        (-2.0f64).mul_add(MARGIN, self.width)
+        (-2.0f64).mul_add(self.margin, self.width)
     }
 
     pub fn heading(&mut self, level: u8, text: &str) -> Result<()> {
@@ -105,7 +110,7 @@ impl Layout {
         }
 
         let header_height = rows.first().filter(|row| row.2).map_or(0.0, |row| row.1);
-        let room = (-2.0f64).mul_add(MARGIN, self.height) - header_height;
+        let room = (-2.0f64).mul_add(self.margin, self.height) - header_height;
         for (index, (cells, height, header)) in rows.iter().enumerate() {
             (*height <= room || *header).ok_or(Error::RowTooTall(*height))?;
             // A header needs the first body row beside it.
@@ -121,6 +126,25 @@ impl Layout {
         Ok(())
     }
 
+    /// Draws picture `index` (`/Im{index}`), on a new page when it does not
+    /// fit, as its alignment says.
+    pub fn picture(&mut self, picture: &Picture, index: usize) {
+        let room = (self.content_width(), (-2.0f64).mul_add(self.margin, self.height));
+        let (width, height) = picture.size(room);
+        self.ensure_room(height);
+        let x = self.margin
+            + match picture.align.unwrap_or(Align::Left) {
+                Align::Left => 0.0,
+                Align::Center => (room.0 - width) / 2.0,
+                Align::Right => room.0 - width,
+            };
+        self.y -= height;
+        let (width, height, x, y) = (Num(width), Num(height), Num(x), Num(self.y));
+        emit(self.current(), format_args!("q {width} 0 0 {height} {x} {y} cm /Im{index} Do Q\n"));
+        self.y -= PARAGRAPH_GAP;
+        self.blank = false;
+    }
+
     pub fn page_break(&mut self) {
         self.new_page();
     }
@@ -129,14 +153,14 @@ impl Layout {
     pub fn finish(mut self, page_numbers: bool) -> Vec<Vec<u8>> {
         if page_numbers {
             let total = self.pages.len();
-            let center = self.width / 2.0;
+            let (center, margin) = (self.width / 2.0, self.margin);
             for (index, page) in self.pages.iter_mut().enumerate() {
                 let bytes = format!("{} / {total}", index + 1).into_bytes();
                 let width = Face::Regular.width(&bytes, FOOTER_SIZE);
                 let look =
                     Look { face: Face::Regular, color: Some(FOOTER_COLOR), underline: false };
                 let label = wrap::Fragment { bytes, look, width };
-                draw_fragment(page, &label, FOOTER_SIZE, center - width / 2.0, MARGIN / 2.0);
+                draw_fragment(page, &label, FOOTER_SIZE, center - width / 2.0, margin / 2.0);
             }
         }
         self.pages
@@ -146,7 +170,7 @@ impl Layout {
     /// (or the page is still blank, where nothing would fit better).
     /// Returns whether it did.
     fn ensure_room(&mut self, needed: f64) -> bool {
-        let full = !self.blank && self.y - needed < MARGIN;
+        let full = !self.blank && self.y - needed < self.margin;
         if full {
             self.new_page();
         }
@@ -155,7 +179,7 @@ impl Layout {
 
     fn new_page(&mut self) {
         self.pages.push(Vec::new());
-        self.y = self.height - MARGIN;
+        self.y = self.height - self.margin;
         self.blank = true;
     }
 
@@ -174,7 +198,7 @@ impl Layout {
             self.ensure_room(leading);
             let baseline = self.y - baseline_offset(size);
             let slack = self.content_width() - line.width;
-            let x = MARGIN
+            let x = self.margin
                 + match align {
                     Align::Left => 0.0,
                     Align::Center => slack / 2.0,
@@ -188,9 +212,8 @@ impl Layout {
 
     /// One table row from the cursor down: fill, borders, then text.
     fn row(&mut self, cells: &[Vec<Line>], height: f64, column_width: f64, header: bool) {
-        let top = self.y;
+        let (top, mut x) = (self.y, self.margin);
         let page = self.current();
-        let mut x = MARGIN;
         for lines in cells {
             let rect = format_args!(
                 "{} {} {} {} re",

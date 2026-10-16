@@ -69,6 +69,15 @@ pub enum Error {
     #[error("a table needs at least one row and one column")]
     EmptyTable,
 
+    #[error("invalid picture: {0}")]
+    InvalidImage(&'static str),
+
+    #[error("page size {0} x {1} points is out of range (36 to 1584 points a side)")]
+    InvalidPageSize(f64, f64),
+
+    #[error("margin {0} points is out of range (0 to 144), or leaves no room on the page")]
+    InvalidMargin(f64),
+
     #[error(
         "{character:?} (U+{code:04X}) cannot be written with the PDF standard font {font}: \
          only Windows-1252 (Latin) text is supported until embedded fonts land",

@@ -48,14 +48,23 @@ impl<W: Write> PdfWriter<W> {
         entries: &[(&str, &dyn fmt::Display)],
     ) -> Result<()> {
         let compressed = miniz_oxide::deflate::compress_to_vec_zlib(data, LEVEL);
+        let dictionary = fmt::from_fn(|f| {
+            f.write_str("/Filter /FlateDecode")?;
+            for (name, value) in entries {
+                write!(f, " /{name} {value}")?;
+            }
+            Ok(())
+        });
+        self.stored(id, format_args!("{dictionary}"), &compressed)
+    }
+
+    /// Writes a stream object as it is stored, `dictionary` following its
+    /// `/Length`.
+    pub fn stored(&mut self, id: usize, dictionary: fmt::Arguments<'_>, data: &[u8]) -> Result<()> {
         self.begin(id)?;
-        let length = compressed.len();
-        self.write_fmt(format_args!("<< /Length {length} /Filter /FlateDecode"))?;
-        for (name, value) in entries {
-            self.write_fmt(format_args!(" /{name} {value}"))?;
-        }
-        self.write(b" >>\nstream\n")?;
-        self.write(&compressed)?;
+        let length = data.len();
+        self.write_fmt(format_args!("<< /Length {length} {dictionary} >>\nstream\n"))?;
+        self.write(data)?;
         self.write(b"\nendstream\nendobj\n")
     }
 

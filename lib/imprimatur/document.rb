@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Imprimatur
-  # A flowing document (headings, paragraphs, tables, page breaks) that
-  # renders to PDF and DOCX from the same content.
+  # A flowing document (headings, paragraphs, tables, pictures, page breaks)
+  # that renders to PDF and DOCX from the same content.
   #
   #   doc = Imprimatur::Document.new(page_numbers: true)
   #   doc.heading 'Quarterly report'
@@ -18,12 +18,35 @@ module Imprimatur
   # PDF uses the standard Helvetica fonts for now: Windows-1252 (Latin) text
   # only, anything else raises {Imprimatur::Error}. DOCX carries any script.
   class Document
-    # @param page_size [:a4, :letter]
+    # @param page_size [:a4, :letter, Array(Numeric, Numeric)] or its width
+    #   and height in points, 36 to 1584 a side
+    # @param margin [Numeric, nil] points on every side, one inch (72) unless set
     # @param page_numbers [Boolean] number pages "1 / N" in the footer
     # @raise [ArgumentError] an unknown page size
-    def initialize(page_size: :a4, page_numbers: false)
+    # @raise [Imprimatur::Error] a page size or margin out of range
+    def initialize(page_size: :a4, margin: nil, page_numbers: false)
       @native = Native::Document.new
-      @native.set_page(page_size.to_s, page_numbers ? true : false)
+      numbers = page_numbers ? true : false
+      if page_size.is_a?(Array)
+        width, height = page_size
+        @native.set_page_points(Float(width), Float(height), numbers)
+      else
+        @native.set_page(page_size.to_s, numbers)
+      end
+      @native.set_margin(Float(margin)) if margin
+    end
+
+    # A PNG or JPEG in the flow, at +width+ or +height+ points (the other
+    # follows its proportions), or else at 96 pixels an inch; never larger
+    # than the page leaves room for.
+    #
+    # @param source [String, Pathname, #read] a path, the bytes or an IO
+    # @param align [:left, :center, :right, nil]
+    # @return [self]
+    # @raise [Imprimatur::Error] no PNG or JPEG, or one it cannot draw
+    def image(source, width: nil, height: nil, align: nil)
+      @native.picture(Reader.read(source), width && Float(width), height && Float(height), align&.to_s)
+      self
     end
 
     # @param text [String]

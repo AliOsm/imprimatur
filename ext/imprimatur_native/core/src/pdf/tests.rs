@@ -1,7 +1,8 @@
 use std::assert_matches;
 
 use crate::Error;
-use crate::doc::{Document, Paragraph, Run, Table};
+use crate::doc::{Document, PageSize, Paragraph, Picture, Run, Table};
+use crate::read::{ImageFormat, ImageLocation, Limits, PngColor, images, png};
 use crate::style::{Align, Color};
 
 /// Checks the file's structure and returns each page's decompressed content.
@@ -25,8 +26,11 @@ fn pages(pdf: &[u8]) -> Vec<String> {
     while let Some(start) = find(rest, b"stream\n") {
         let body = &rest[start + 7..];
         let end = find(body, b"\nendstream").unwrap();
-        let data = miniz_oxide::inflate::decompress_to_vec_zlib(&body[..end]).unwrap();
-        contents.push(String::from_utf8_lossy(&data).into_owned());
+        let object = rest[..start].windows(5).rposition(|at| at == b" obj\n").unwrap();
+        if find(&rest[object..start], b"/Subtype /Image").is_none() {
+            let data = miniz_oxide::inflate::decompress_to_vec_zlib(&body[..end]).unwrap();
+            contents.push(String::from_utf8_lossy(&data).into_owned());
+        }
         rest = &body[end + b"\nendstream".len()..];
     }
     let count: usize =
@@ -123,4 +127,59 @@ fn refuses_what_it_cannot_draw() {
 #[test]
 fn an_empty_document_is_one_blank_page() {
     assert_eq!(pages(&Document::new().to_pdf().unwrap()), [""]);
+}
+
+#[test]
+fn draws_pictures() {
+    let gray = png(2, 2, PngColor::Gray, 8, None, &[0, 255, 255, 0]);
+    let indexed = png(4, 1, PngColor::Palette, 2, Some(&[255, 0, 0, 0, 0, 255]), &[0b0001_0001]);
+    // tRNS goes before the pixels: the second color fully transparent.
+    let idat = find(&indexed, b"IDAT").unwrap() - 4;
+    let crc = crc32fast::hash(b"tRNS\xFF\x00").to_be_bytes();
+    let chunk = [&[0, 0, 0, 2][..], b"tRNS\xFF\x00", &crc].concat();
+    let transparent = [&indexed[..idat], &chunk, &indexed[idat..]].concat();
+    let rgba = png(1, 1, PngColor::Rgba, 8, None, &[10, 20, 30, 128]);
+    // An 8-bit, 3 by 2, RGB baseline frame header.
+    let jpeg =
+        [0xFF, 0xD8, 0xFF, 0xC0, 0, 17, 8, 0, 2, 0, 3, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1];
+
+    let mut doc = Document::new();
+    doc.set_page_size(PageSize::custom(200.0, 200.0).unwrap()).set_margin(10.0).unwrap();
+    let pictures = [gray, indexed, transparent, rgba, jpeg.to_vec()];
+    for (data, align) in
+        pictures.into_iter().zip([Align::Left, Align::Center, Align::Right].iter().cycle())
+    {
+        doc.picture(Picture::new(data).unwrap().width(40.0).unwrap().align(*align));
+    }
+    let pdf = doc.to_pdf().unwrap();
+    assert!(String::from_utf8_lossy(&pdf).contains("/MediaBox [0 0 200 200]"));
+    assert_eq!(pages(&pdf).len(), 1, "drawn 40 points wide, one under another");
+
+    let mut found = Vec::new();
+    images(&pdf, &Limits::default(), |image| {
+        found.push(image);
+        Ok(())
+    })
+    .unwrap();
+    let placed: Vec<_> = found
+        .iter()
+        .map(|image| {
+            let ImageLocation::Page { number, bounds: Some(bounds) } = &image.location else {
+                panic!("{:?}", image.location)
+            };
+            (image.format, image.width, image.height, *number, bounds.left, bounds.top)
+        })
+        .collect();
+    assert_eq!(
+        placed,
+        [
+            (ImageFormat::Png, Some(2), Some(2), 1, 10.0, 10.0),
+            (ImageFormat::Png, Some(4), Some(1), 1, 80.0, 56.0),
+            (ImageFormat::Png, Some(4), Some(1), 1, 150.0, 72.0),
+            (ImageFormat::Png, Some(1), Some(1), 1, 10.0, 88.0),
+            (ImageFormat::Jpeg, Some(3), Some(2), 1, 80.0, 134.0),
+        ]
+    );
+    assert_eq!(found[3].data[25], 6, "its alpha comes back: RGBA");
+    assert_matches!(Picture::new(b"GIF89a".to_vec()), Err(Error::InvalidImage(_)));
 }
