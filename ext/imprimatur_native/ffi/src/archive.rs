@@ -45,9 +45,7 @@ impl ZipWriter {
         data: RString,
         comment: Option<String>,
     ) -> Result<(), Error> {
-        // SAFETY: the bytes are copied out at once, while the GVL is held.
-        #[allow(unsafe_code)]
-        let data = unsafe { data.as_slice() }.to_vec();
+        let data = crate::bytes(data);
         let mut slot = borrow(ruby, &rb_self.0, "zip writer")?;
         let writer = slot.as_mut().ok_or_else(|| finished(ruby))?;
         without_gvl(ruby, || writer.add(&name, &data, comment.as_deref()))?.or_raise(ruby)

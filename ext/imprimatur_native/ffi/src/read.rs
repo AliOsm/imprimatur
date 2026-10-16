@@ -113,10 +113,7 @@ pub fn without_gvl<T>(
     keywords: (Option<usize>, Option<u64>, Option<f64>),
     job: Job<T>,
 ) -> Result<T, Error> {
-    // SAFETY: the bytes are copied out at once, while the GVL is held and
-    // before any Ruby code can run and move or free the string.
-    #[allow(unsafe_code)]
-    let document = unsafe { document.as_slice() }.to_vec();
+    let document = crate::bytes(document);
     let cancel = Arc::new(AtomicBool::new(false));
     let limits = limits(ruby, &cancel, keywords)?;
     let mut read = Read { document, limits, job, result: None };
