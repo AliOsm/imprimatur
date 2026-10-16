@@ -97,8 +97,15 @@ assert!(found.is_empty(), "no pictures in this one");
 # Ok::<(), imprimatur::Error>(())
 ```
 
+`font::TrueTypeFont::from_bytes` loads borrowed static TrueType data and exposes
+Unicode glyph IDs, horizontal advances and raw `hhea` line metrics in font units.
+It checks the required tables and outline offsets, but is not a full font
+sanitizer. Collections, WOFF, CFF and variable fonts are not supported. This is
+a Rust font-data API only: document font selection, PDF embedding, shaping and
+bidirectional layout are not implemented by it; PDF writing still uses Helvetica.
+
 Dependencies: `miniz_oxide`, `crc32fast` and `thiserror`; reading encrypted
-PDFs adds `md-5`, `sha2` and `aes`.
+PDFs adds `md-5`, `sha2` and `aes`; TrueType loading uses `read-fonts` (Fontations).
 
 Two features add what the core does not need: `json` (`read::json`, the
 schema the command line and the Ruby gem print, through `serde_json`) and

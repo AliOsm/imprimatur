@@ -45,6 +45,9 @@ pub enum Error {
     #[error("font size {0} is out of range (1 to 409 points, in steps of 0.5)")]
     InvalidFontSize(f64),
 
+    #[error("unsupported font: {0}")]
+    UnsupportedFont(&'static str),
+
     #[error("invalid cell range {0:?}: expected a reference such as B2 or B2:D9")]
     InvalidRange(String),
 
