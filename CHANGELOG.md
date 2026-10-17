@@ -7,10 +7,7 @@
 
 * a spreadsheet's sheets give their comments, columns, validations and styles ([1797632](https://github.com/seuros/imprimatur/commit/1797632aad2948c1c0a493501de3684187062246))
 * draw PNG and JPEG pictures, on pages of any size ([419524a](https://github.com/seuros/imprimatur/commit/419524afe36bbb06e3ef0ecb48a4fab4f80fb989))
-* **font:** load static TrueType fonts and metrics ([1b95aec](https://github.com/seuros/imprimatur/commit/1b95aec7e38f70a738672b5ddf28e8b5ad3a5d19))
-* **font:** load static TrueType fonts and metrics ([245c894](https://github.com/seuros/imprimatur/commit/245c894ab705e85a655262bb05018fcc3a0fbaac))
 * **font:** load static TrueType fonts and metrics ([fd85e3d](https://github.com/seuros/imprimatur/commit/fd85e3d78ece99506b2dde2c61bab6997cb20d21))
-* **font:** load static TrueType fonts and metrics ([088006c](https://github.com/seuros/imprimatur/commit/088006ce72a909ab46421419b94d73287ed0e6f5))
 * read column widths, data validations and cell styles ([2930964](https://github.com/seuros/imprimatur/commit/2930964cde82cc998113aa83336a547cda8bd9f8))
 * read whether a list validation shows its drop-down ([b75ef53](https://github.com/seuros/imprimatur/commit/b75ef530ef790876c58e40bb02dfc7257a48aab5))
 * read workbooks as typed rows with Imprimatur::Spreadsheet ([927033b](https://github.com/seuros/imprimatur/commit/927033bb5ef9725c38726bc0785bbd90be8f1dc8))
