@@ -179,6 +179,8 @@ pub struct Validation {
     pub formula1: Option<String>,
     pub formula2: Option<String>,
     pub allow_blank: bool,
+    /// Whether a list shows its in-cell drop-down arrow.
+    pub dropdown: bool,
     /// `stop`, `warning` or `information`, when a wrong value is refused.
     pub alert: Option<String>,
     pub error_title: Option<String>,

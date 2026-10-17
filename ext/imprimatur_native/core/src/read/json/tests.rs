@@ -13,7 +13,7 @@ fn types_cells_and_keeps_shown_text_apart() {
     let money = Format::new().bold().fill(Color::rgb(0xFF_FF00)).number_format("#,##0.00").unwrap();
     sheet.write_with_format(0, 1, 1250.5, &money).unwrap();
     sheet.set_column_width(0, 18.0).unwrap();
-    let yes_no = Rule::list(["Yes", "No"]).unwrap();
+    let yes_no = Rule::list(["Yes", "No"]).unwrap().dropdown(false);
     sheet.add_validation("C1:C10".parse::<CellRange>().unwrap(), yes_no).unwrap();
     let mut content = read(&book.to_bytes().unwrap(), &Limits::default()).unwrap();
     let Content::Xlsx(sheets) = &mut content else { panic!() };
@@ -36,8 +36,8 @@ fn types_cells_and_keeps_shown_text_apart() {
             "comments": [{ "cell": "B1", "author": null, "text": "net" }],
             "columns": [{ "first": "A", "last": "A", "width": 18.0, "hidden": false }],
             "validations": [{
-                "range": "C1:C10", "type": "list", "operator": null,
-                "formula1": "\"Yes,No\"", "formula2": null, "allow_blank": true, "alert": "stop",
+                "range": "C1:C10", "type": "list", "operator": null, "formula1": "\"Yes,No\"",
+                "formula2": null, "allow_blank": true, "dropdown": false, "alert": "stop",
                 "error_title": null, "error": null, "prompt_title": null, "prompt": null,
             }],
             "styles": [{

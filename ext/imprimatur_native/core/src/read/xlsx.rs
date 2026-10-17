@@ -333,6 +333,8 @@ fn validation(tag: Tag<'_>) -> Validation {
         kind: text("type").unwrap_or_else(|| "none".to_owned()),
         operator: text("operator"),
         allow_blank: tag.on("allowBlank"),
+        // Inverted in the file format: showDropDown="1" hides the arrow.
+        dropdown: !tag.on("showDropDown"),
         alert: tag
             .on("showErrorMessage")
             .then(|| text("errorStyle").unwrap_or_else(|| "stop".to_owned())),

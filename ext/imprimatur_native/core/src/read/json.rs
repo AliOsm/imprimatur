@@ -179,6 +179,7 @@ fn validation(rule: &Validation) -> Json {
         "formula1": rule.formula1,
         "formula2": rule.formula2,
         "allow_blank": rule.allow_blank,
+        "dropdown": rule.dropdown,
         "alert": rule.alert,
         "error_title": rule.error_title,
         "error": rule.error,
