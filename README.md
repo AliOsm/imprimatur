@@ -318,6 +318,13 @@ fibers keep running, and `Timeout` or `Thread#raise` cancels it.
 `Imprimatur::PasswordRequired` and `Imprimatur::UnsupportedDocument` (legacy
 `.doc`, `.xlsb`, presentations) are the other errors to expect.
 
+A binary String is always the document's bytes, never a path: an upload
+holding `/etc/passwd` or `/dev/zero` is refused as `UnsupportedDocument`,
+not read from the server. A path (a `Pathname`, or a String that is not
+binary and has no document signature) must name a regular file; devices,
+pipes and directories are refused. An IO or a path is read no further than
+`max_bytes:`, so an endless stream or a huge file stops there.
+
 ### Structure and images
 
 Markdown is one rendering of what a read finds. `Imprimatur.content` gives

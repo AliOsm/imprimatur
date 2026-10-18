@@ -123,7 +123,7 @@ module Imprimatur
     # @raise [UnsupportedDocument] a PDF, a Word document or another format
     # @raise [Imprimatur::Error] a damaged workbook, or past a limit
     def self.open(document, styles: false, **limits)
-      new(Native.sheets(Reader.read(document), *Reader.limits(**limits), styles ? true : false))
+      new(Native.sheets(Reader.read(document, limits[:max_bytes]), *Reader.limits(**limits), styles ? true : false))
     end
 
     # @return [Array<Sheet>] in the workbook's order, hidden ones included

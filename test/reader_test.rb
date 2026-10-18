@@ -128,6 +128,51 @@ class ReaderTest < Minitest::Test
     end
   end
 
+  def test_bytes_never_name_a_file
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'sales.xlsx')
+      File.binwrite(path, workbook)
+
+      # An upload holding a server path, binary as File.binread or a download gives it.
+      assert_raises(Imprimatur::UnsupportedDocument) { Imprimatur.markdown(path.b) }
+      assert_raises(Imprimatur::UnsupportedDocument) { Imprimatur.spreadsheet(path.b) }
+      assert_includes Imprimatur.markdown(path), '## Sales', 'a UTF-8 String is still a path'
+
+      fifo = File.join(dir, 'pipe')
+      File.mkfifo(fifo)
+      [File::NULL, dir, fifo, Pathname(File::NULL)].each do |special|
+        error = assert_raises(Imprimatur::UnsupportedDocument) { Timeout.timeout(5) { Imprimatur.markdown(special) } }
+
+        assert_match(/is not a regular file/, error.message)
+      end
+    end
+  end
+
+  def test_reads_no_further_than_max_bytes
+    endless = Class.new do
+      attr_reader :asked
+
+      def read(length = nil)
+        raise 'read without a length: an endless stream never ends' unless length
+
+        @asked = length
+        'x' * length
+      end
+    end.new
+
+    assert_raises(Imprimatur::LimitExceeded) { Imprimatur.markdown(endless, max_bytes: 10) }
+    assert_equal 11, endless.asked
+    assert_raises(Imprimatur::LimitExceeded) { Imprimatur.spreadsheet(endless, max_bytes: 10) }
+
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'sales.xlsx')
+      File.binwrite(path, workbook)
+
+      assert_raises(Imprimatur::LimitExceeded) { Imprimatur.markdown(path, max_bytes: 10) }
+      assert_includes Imprimatur.markdown(Pathname(path), max_bytes: workbook.bytesize), '## Sales'
+    end
+  end
+
   def test_raises_what_callers_handle
     scanned = Imprimatur.pdf { it.paragraph(' ') }
 

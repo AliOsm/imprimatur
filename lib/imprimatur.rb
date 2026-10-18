@@ -66,7 +66,8 @@ module Imprimatur
     #   Imprimatur.markdown(File.open('sales.xlsx'))
     #
     # @param document [String, Pathname, #read] a path, the document's bytes
-    #   (told apart by their signature), or an IO
+    #   (a binary String always is; another String only with a document's
+    #   signature), or an IO. A path must name a regular file.
     # @param timeout [Numeric, nil] seconds the read may take (60), +nil+ for none
     # @param max_bytes [Integer, nil] the largest document accepted (512 MiB)
     # @param max_inflated [Integer, nil] decompressed bytes allowed in all (1 GiB)
