@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/seuros/imprimatur/compare/v0.4.0...v0.5.0) (2026-10-18)
+
+
+### Features
+
+* a binary String is always a document's bytes, a path must name a regular file, and reads stop at max_bytes ([3484a64](https://github.com/seuros/imprimatur/commit/3484a64b791beb2e9f90cd485441fae255e223f0))
+
 ## [0.4.0](https://github.com/seuros/imprimatur/compare/v0.3.0...v0.4.0) (2026-10-18)
 
 
