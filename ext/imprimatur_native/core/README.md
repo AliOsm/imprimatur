@@ -115,9 +115,10 @@ With the `fonts` feature, `font::TrueTypeFont::from_bytes` loads borrowed
 static TrueType data and exposes Unicode glyph IDs, horizontal advances and
 raw `hhea` line metrics in font units. It checks the required tables and
 outline offsets, but is not a full font sanitizer. Collections, WOFF, CFF and
-variable fonts are not supported. This is a Rust font-data API only: document
-font selection, PDF embedding, shaping and bidirectional layout are not
-implemented by it; PDF writing still uses Helvetica.
+variable fonts are not supported. This is a Rust font-data API only. The
+internal PDF writer can serialize TrueType font resources with every glyph
+and Unicode text mappings; document font selection, shaping and bidirectional
+layout still need to connect to them. Document PDF output uses Helvetica.
 
 Barcodes: QR Code and Data Matrix (their GS1 forms too), EAN-13, EAN-8, UPC-A,
 Code 128 and GS1-128, drawn as SVG, as PNG, or into a document (shapes in a
