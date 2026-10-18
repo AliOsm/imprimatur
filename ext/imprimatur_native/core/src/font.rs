@@ -224,6 +224,8 @@ fn unicode_cmap<'a>(cmap: &Cmap<'a>) -> Result<CmapSubtable<'a>> {
     Err(Error::UnsupportedFont("no supported Unicode cmap"))
 }
 
-fn invalid(reason: impl std::fmt::Display) -> Error {
+/// `Malformed`, categorized as TrueType font data: parsing, embedding and PDF
+/// resource errors ([`crate::pdf::truetype`]) all point at the same category.
+pub(crate) fn invalid(reason: impl std::fmt::Display) -> Error {
     Error::malformed("TrueType font", reason.to_string())
 }

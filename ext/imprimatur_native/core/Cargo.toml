@@ -10,7 +10,16 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-include = ["src/**/*.rs", "src/**/*.txt", "src/**/tests/*.pdf", "src/**/tests/*.xml", "src/**/tests/*.rels", "README.md", "LICENSE*"]
+include = [
+  "src/**/*.rs",
+  "src/**/*.txt",
+  "README.md",
+  "LICENSE*",
+  # Tests and their fixtures build nothing a published crate needs.
+  "!src/**/tests.rs",
+  "!src/**/tests/**",
+  "!src/**/test_support.rs",
+]
 
 [lints]
 workspace = true
@@ -23,7 +32,7 @@ md-5 = "0.11.0"
 miniz_oxide = "0.9.1"
 qrcode = { version = "0.14.1", default-features = false }
 read-fonts = { version = "0.45.1", optional = true }
-serde_json = { version = "1.0.154", optional = true }
+serde_json = { workspace = true, optional = true }
 sha2 = "0.11.1"
 thiserror = "2.0.21"
 zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"], optional = true }
@@ -41,5 +50,5 @@ fonts = ["dep:read-fonts"]
 
 [dev-dependencies]
 font-test-data = "0.10.0"
-tempfile = "3"
+tempfile.workspace = true
 zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }

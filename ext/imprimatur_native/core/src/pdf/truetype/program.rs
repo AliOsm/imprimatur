@@ -7,8 +7,8 @@ mod tests;
 
 use read_fonts::{FontRef, TableRecord, types::Tag};
 
-use crate::font::TrueTypeFont;
-use crate::{Error, Result};
+use crate::Result;
+use crate::font::{TrueTypeFont, invalid};
 
 pub fn for_pdf(font: &TrueTypeFont<'_>) -> Result<Vec<u8>> {
     let source = FontRef::new(font.as_bytes()).map_err(invalid)?;
@@ -67,8 +67,4 @@ fn checksum(data: &[u8]) -> u32 {
         word[..bytes.len()].copy_from_slice(bytes);
         sum.wrapping_add(u32::from_be_bytes(word))
     })
-}
-
-fn invalid(reason: impl std::fmt::Display) -> Error {
-    Error::malformed("TrueType font", reason.to_string())
 }

@@ -203,16 +203,16 @@ impl std::io::Write for RubyBytes {
     }
 }
 
-/// Mutable access to a wrapped value; Ruby code that calls back into the
-/// same object mid-call gets a `RuntimeError`, not a panic.
 /// A Ruby String's bytes, copied out.
 fn bytes(string: RString) -> Vec<u8> {
+    #[allow(unsafe_code)]
     // SAFETY: the bytes are copied out at once, while the GVL is held and
     // before any Ruby code can run and move or free the string.
-    #[allow(unsafe_code)]
     unsafe { string.as_slice() }.to_vec()
 }
 
+/// Mutable access to a wrapped value; Ruby code that calls back into the
+/// same object mid-call gets a `RuntimeError`, not a panic.
 fn borrow<'a, T>(ruby: &Ruby, cell: &'a RefCell<T>, what: &str) -> Result<RefMut<'a, T>, Error> {
     cell.try_borrow_mut().map_err(|_| {
         Error::new(

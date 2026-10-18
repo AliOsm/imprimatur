@@ -129,8 +129,10 @@ impl<'a> EmbeddedFont<'a> {
             // Writing to a String cannot fail.
             let _ = writeln!(cmap, "{} beginbfchar", chunk.len());
             for ((_, text), code) in chunk {
+                // Writing to a String cannot fail.
                 let _ = write!(cmap, "<{code:04X}> <");
                 for unit in text.encode_utf16() {
+                    // Writing to a String cannot fail.
                     let _ = write!(cmap, "{unit:04X}");
                 }
                 cmap.push_str(">\n");

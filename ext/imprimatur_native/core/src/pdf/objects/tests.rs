@@ -1,6 +1,7 @@
 use std::io::{Cursor, ErrorKind};
 
 use super::*;
+use std::assert_matches;
 
 #[test]
 fn stream_entries_preserve_binary_data_and_object_offsets() {
@@ -57,7 +58,7 @@ fn propagates_errors_while_writing_stream_entries() {
     let mut writer = PdfWriter::new(Cursor::new(output.as_mut_slice())).unwrap();
     let value = "x".repeat(200);
     let result = writer.stream(1, b"data", &[("Example", &value)]);
-    assert!(matches!(result, Err(Error::Io(error)) if error.kind() == ErrorKind::WriteZero));
+    assert_matches!(result, Err(Error::Io(error)) if error.kind() == ErrorKind::WriteZero);
 }
 
 fn find(data: &[u8], needle: &[u8]) -> usize {

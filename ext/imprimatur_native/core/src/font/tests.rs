@@ -107,6 +107,8 @@ fn rejects_legacy_or_symbol_only_cmaps() {
         let cmap = table_offset(&bytes, *b"cmap");
         bytes[cmap + 4..cmap + 6].copy_from_slice(&platform.to_be_bytes());
         bytes[cmap + 6..cmap + 8].copy_from_slice(&encoding.to_be_bytes());
+        // `TrueTypeFont` has no `Debug` (its `read-fonts` table fields don't),
+        // so `assert_matches!` cannot print it on failure.
         assert!(matches!(
             TrueTypeFont::from_bytes(&bytes),
             Err(Error::UnsupportedFont("no supported Unicode cmap"))
@@ -147,6 +149,7 @@ fn rejects_unsupported_font_formats() {
         b"wOFF",
         b"wOF2",
     ] {
+        // `TrueTypeFont` has no `Debug`; see `rejects_legacy_or_symbol_only_cmaps`.
         assert!(matches!(TrueTypeFont::from_bytes(bytes), Err(Error::UnsupportedFont(_))));
     }
 }
@@ -223,6 +226,7 @@ fn validates_short_and_long_outline_offsets() {
 }
 
 fn assert_malformed(bytes: &[u8]) {
+    // `TrueTypeFont` has no `Debug`; see `rejects_legacy_or_symbol_only_cmaps`.
     assert!(matches!(
         TrueTypeFont::from_bytes(bytes),
         Err(Error::Malformed { format: "TrueType font", .. })

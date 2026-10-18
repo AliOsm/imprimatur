@@ -1,3 +1,4 @@
+use std::assert_matches;
 use std::io::{Cursor, ErrorKind};
 
 use font_test_data::{AHEM, TINOS_SUBSET};
@@ -6,9 +7,19 @@ use super::*;
 use crate::pdf::objects::push_string;
 use crate::read::{Limits, markdown};
 
+/// `TINOS_SUBSET`, loaded: the fixture every test but `AHEM`'s shares.
+fn tinos() -> TrueTypeFont<'static> {
+    TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()
+}
+
+/// `tinos()`, already embedded.
+fn tinos_font() -> EmbeddedFont<'static> {
+    EmbeddedFont::new(tinos()).unwrap()
+}
+
 #[test]
 fn embeds_all_glyphs_with_scaled_widths_and_valid_references() {
-    let source = TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap();
+    let source = tinos();
     let a = source.glyph_id('A').unwrap();
     let mut font = EmbeddedFont::new(source).unwrap();
     let code = font.encode_glyph(a, "A").unwrap();
@@ -45,7 +56,7 @@ fn embeds_all_glyphs_with_scaled_widths_and_valid_references() {
 
 #[test]
 fn shared_glyphs_retain_distinct_unicode_text() {
-    let source = TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap();
+    let source = tinos();
     let space = source.glyph_id(' ').unwrap();
     assert_eq!(source.glyph_id('\u{a0}'), Some(space));
     let mut font = EmbeddedFont::new(source).unwrap();
@@ -61,7 +72,7 @@ fn shared_glyphs_retain_distinct_unicode_text() {
 
 #[test]
 fn unicode_maps_support_ligatures_and_supplementary_characters() {
-    let mut font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let mut font = tinos_font();
     // These synthetic uses check mapping syntax and extraction, not the fixture's
     // outlines or Arabic shaping. The font has no Arabic or emoji glyphs.
     let mut text = Vec::new();
@@ -91,7 +102,7 @@ fn zero_advance_and_unmapped_glyphs_are_preserved() {
 
 #[test]
 fn unused_font_has_an_empty_mapping_and_a_notdef_entry() {
-    let font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let font = tinos_font();
     let pdf = document(&font, &[]);
     assert!(object_text(&pdf, 6).contains("/W []"));
     assert_eq!(stream(&pdf, 9).1, [0, 0]);
@@ -101,7 +112,7 @@ fn unused_font_has_an_empty_mapping_and_a_notdef_entry() {
 
 #[test]
 fn unicode_mapping_blocks_have_at_most_one_hundred_entries() {
-    let mut font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let mut font = tinos_font();
     for index in 0..205 {
         font.encode_glyph(3, &format!("item{index}")).unwrap();
     }
@@ -114,9 +125,9 @@ fn unicode_mapping_blocks_have_at_most_one_hundred_entries() {
 
 #[test]
 fn rejects_invalid_glyphs_and_oversized_unicode_without_allocating_codes() {
-    let mut font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let mut font = tinos_font();
     for glyph in [0, 7, u16::MAX] {
-        assert!(matches!(font.encode_glyph(glyph, "A"), Err(Error::Malformed { .. })));
+        assert_matches!(font.encode_glyph(glyph, "A"), Err(Error::Malformed { .. }));
     }
     assert!(font.encode_glyph(3, &"😀".repeat(129)).is_err());
     assert_eq!(font.encode_glyph(3, &"😀".repeat(128)).unwrap(), [0, 1]);
@@ -125,7 +136,7 @@ fn rejects_invalid_glyphs_and_oversized_unicode_without_allocating_codes() {
 
 #[test]
 fn full_code_space_keeps_existing_mappings_and_rejects_overflow() {
-    let mut font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let mut font = tinos_font();
     for index in 1..=u16::MAX {
         assert_eq!(font.encode_glyph(3, &index.to_string()).unwrap(), index.to_be_bytes());
     }
@@ -149,7 +160,7 @@ fn full_code_space_keeps_existing_mappings_and_rejects_overflow() {
 
 #[test]
 fn font_resources_can_follow_other_font_resources() {
-    let mut font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let mut font = tinos_font();
     font.encode_glyph(3, "A").unwrap();
     let mut writer = PdfWriter::new(Vec::new()).unwrap();
     font.write(&mut writer, 1).unwrap();
@@ -163,13 +174,13 @@ fn font_resources_can_follow_other_font_resources() {
 
 #[test]
 fn propagates_output_errors() {
-    let font = EmbeddedFont::new(TrueTypeFont::from_bytes(TINOS_SUBSET).unwrap()).unwrap();
+    let font = tinos_font();
     let mut storage = [0; 250];
     let mut writer = PdfWriter::new(Cursor::new(storage.as_mut_slice())).unwrap();
-    assert!(matches!(
+    assert_matches!(
         font.write(&mut writer, 1),
         Err(Error::Io(error)) if error.kind() == ErrorKind::WriteZero
-    ));
+    );
 }
 
 fn document(font: &EmbeddedFont<'_>, codes: &[u8]) -> Vec<u8> {

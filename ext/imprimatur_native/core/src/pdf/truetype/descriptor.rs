@@ -11,7 +11,7 @@ use read_fonts::{
     types::{NameId, Tag},
 };
 
-use crate::font::TrueTypeFont;
+use crate::font::{TrueTypeFont, invalid};
 use crate::pdf::objects::{Num, PdfWriter};
 use crate::{Error, Result};
 
@@ -126,8 +126,4 @@ fn postscript_name(font: &FontRef<'_>) -> Result<String> {
         }
     }
     Err(Error::UnsupportedFont("no usable PostScript font name"))
-}
-
-fn invalid(reason: impl std::fmt::Display) -> Error {
-    Error::malformed("TrueType font", reason.to_string())
 }

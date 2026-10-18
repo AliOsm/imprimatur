@@ -10,6 +10,8 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+# Tests and their fixtures build nothing a published crate needs.
+exclude = ["tests/**", "src/**/tests.rs"]
 
 [[bin]]
 name = "imprimatur"

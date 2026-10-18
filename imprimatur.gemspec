@@ -36,7 +36,8 @@ Gem::Specification.new do |spec|
   else
     # The core's unit tests (`mod tests;` under #[cfg(test)]) are not needed to build.
     spec.files += Dir['ext/**/*.{rb,rs,toml,txt}', 'ext/imprimatur_native/core/{README.md,LICENSE}',
-                      'Cargo.toml', 'Cargo.lock'].reject { it.match?(%r{/tests(/|\.rs\z)|/examples/}) }
+                      'Cargo.toml', 'Cargo.lock']
+                  .reject { it.match?(%r{/tests(/|\.rs\z)|/test_support\.rs\z|/examples/}) }
     spec.extensions = ['ext/imprimatur_native/extconf.rb']
     spec.required_ruby_version = '>= 4.0'
     spec.add_dependency 'rb_sys', '~> 0.9.130'
