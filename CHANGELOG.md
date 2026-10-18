@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/seuros/imprimatur/compare/v0.3.0...v0.4.0) (2026-10-18)
+
+
+### Features
+
+* barcodes: QR Code, Data Matrix, EAN-13, EAN-8, UPC-A and Code 128, GS1 forms included, as SVG, PNG and in documents ([ade7b68](https://github.com/seuros/imprimatur/commit/ade7b68f4c5adcab9d2ee0b935288eea7ec2eea6))
+* **pdf:** add embedded TrueType font resources ([c0e3be4](https://github.com/seuros/imprimatur/commit/c0e3be4ef46ede94fcc840840e82d8ccb6679f3e))
+* **pdf:** add embedded TrueType font resources ([313075f](https://github.com/seuros/imprimatur/commit/313075fe8ba1bedc9f4156060aeedcbb0e0a8bef))
+
 ## [0.3.0](https://github.com/seuros/imprimatur/compare/v0.2.0...v0.3.0) (2026-10-17)
 
 
