@@ -1,4 +1,5 @@
-use crate::doc::{Document, Paragraph, Picture, Run, Table};
+use crate::barcode::Barcode;
+use crate::doc::{Document, Paragraph, Picture, Run, Symbol, Table};
 use crate::opc::RELATIONSHIPS;
 use crate::read::{PngColor, png};
 use crate::style::{Align, Color, TextDirection};
@@ -152,4 +153,25 @@ fn takes_direction_from_the_text() {
     let sample = self::parts(&sample());
     let latin = part(&sample, "word/document.xml");
     assert!(!latin.contains("bidiVisual") && !latin.contains("<w:bidi/></w:sectPr>"), "{latin}");
+}
+
+#[test]
+fn puts_barcodes_in_as_pictures() {
+    let mut doc = Document::new();
+    let ean = Barcode::ean13("9506000134352").unwrap();
+    doc.barcode(Symbol::new(ean).width(113.0).unwrap().height(50.0).unwrap().align(Align::Center));
+    let parts = parts(&doc);
+    assert!(parts.iter().any(|(name, _)| name == "word/media/image1.png"));
+    // 113 by 50 points, in EMUs.
+    let body = part(&parts, "word/document.xml");
+    assert!(body.contains(r#"<wp:extent cx="1435100" cy="635000"/>"#), "{body}");
+    // One module a point: 5 pixels a module, for 300 an inch.
+    let png = &doc.to_docx().unwrap();
+    let image = crate::test_support::read_zip(png.clone())
+        .into_iter()
+        .find(|(name, _)| name == "word/media/image1.png")
+        .unwrap()
+        .1;
+    let picture = Picture::new(image).unwrap();
+    assert_eq!(picture.pixels, (113 * 5, 50 * 5));
 }

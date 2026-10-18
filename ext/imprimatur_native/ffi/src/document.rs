@@ -2,10 +2,11 @@
 
 use std::cell::RefCell;
 
-use imprimatur::doc::{Document, PageSize, Paragraph, Picture, Run, Table};
+use imprimatur::doc::{Document, PageSize, Paragraph, Picture, Run, Symbol, Table};
 use imprimatur::style::Color;
 use magnus::{Error, RModule, RString, Ruby, function, method, prelude::*};
 
+use crate::barcode::Barcode;
 use crate::{ALIGNS, DIRECTIONS, OrRaise, RubyBytes, borrow, keyword};
 
 /// `[text, bold, italic, underline, color]`, as `Imprimatur::Paragraph` collects it.
@@ -85,6 +86,32 @@ impl NativeDocument {
             picture = picture.align(keyword(ruby, "align", &align, &ALIGNS)?);
         }
         borrow(ruby, &rb_self.0, "document")?.picture(picture);
+        Ok(())
+    }
+
+    /// A barcode, `width` and `height` in points, in a `color` "#RRGGBB".
+    fn barcode(
+        ruby: &Ruby,
+        rb_self: &Self,
+        barcode: &Barcode,
+        (width, height): (Option<f64>, Option<f64>),
+        align: Option<String>,
+        color: Option<String>,
+    ) -> Result<(), Error> {
+        let mut symbol = Symbol::new(barcode.0.clone());
+        if let Some(width) = width {
+            symbol = symbol.width(width).or_raise(ruby)?;
+        }
+        if let Some(height) = height {
+            symbol = symbol.height(height).or_raise(ruby)?;
+        }
+        if let Some(align) = align {
+            symbol = symbol.align(keyword(ruby, "align", &align, &ALIGNS)?);
+        }
+        if let Some(color) = color {
+            symbol = symbol.color(Color::from_hex(&color).or_raise(ruby)?);
+        }
+        borrow(ruby, &rb_self.0, "document")?.barcode(symbol);
         Ok(())
     }
 
@@ -175,6 +202,7 @@ pub fn define(ruby: &Ruby, native: RModule) -> Result<(), Error> {
     class.define_method("set_page_points", method!(NativeDocument::set_page_points, 3))?;
     class.define_method("set_margin", method!(NativeDocument::set_margin, 1))?;
     class.define_method("picture", method!(NativeDocument::picture, 4))?;
+    class.define_method("barcode", method!(NativeDocument::barcode, 4))?;
     class.define_method("heading", method!(NativeDocument::heading, 2))?;
     class.define_method("paragraph", method!(NativeDocument::paragraph, 3))?;
     class.define_method("table", method!(NativeDocument::table, 2))?;

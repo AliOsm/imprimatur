@@ -18,8 +18,10 @@ workspace = true
 [dependencies]
 aes = "0.9.3"
 crc32fast = "1.5.2"
+datamatrix = "0.3.3"
 md-5 = "0.11.0"
 miniz_oxide = "0.9.1"
+qrcode = { version = "0.14.1", default-features = false }
 read-fonts = { version = "0.45.1", optional = true }
 serde_json = { version = "1.0.154", optional = true }
 sha2 = "0.11.1"

@@ -3,7 +3,8 @@
 //! (deflate) and `crc32fast`.
 //!
 //! [`xlsx`] writes workbooks; [`doc`] is one document model that renders to
-//! PDF and DOCX.
+//! PDF and DOCX; [`barcode`] draws QR Code, Data Matrix, EAN, UPC and Code
+//! 128 symbols, GS1 ones included.
 //!
 //! ```
 //! use imprimatur::xlsx::{Cell, Workbook};
@@ -20,6 +21,7 @@
 
 #[cfg(feature = "archive")]
 pub mod archive;
+pub mod barcode;
 pub mod doc;
 mod docx;
 mod error;

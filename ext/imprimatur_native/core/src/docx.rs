@@ -6,6 +6,7 @@ mod picture;
 #[cfg(test)]
 mod tests;
 
+use std::borrow::Cow;
 use std::io::Write;
 
 use crate::Result;
@@ -29,11 +30,17 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
     }
     // Pictures' files follow, their relationships numbered from here.
     let first_media = parts.len() + 1;
-    let pictures: Vec<&Picture> = document
+    // Barcodes go in as pictures.
+    let rendered = document
         .blocks()
         .iter()
-        .filter_map(|block| if let Block::Picture(picture) = block { Some(picture) } else { None })
-        .collect();
+        .filter_map(|block| match block {
+            Block::Picture(picture) => Some(Ok(Cow::Borrowed(picture))),
+            Block::Symbol(symbol) => Some(symbol.picture(room).map(Cow::Owned)),
+            _ => None,
+        })
+        .collect::<Result<Vec<Cow<'_, Picture>>>>()?;
+    let pictures: Vec<&Picture> = rendered.iter().map(|picture| &**picture).collect();
     for (number, picture) in (1..).zip(&pictures) {
         parts.push(("image", picture::file_name(picture, number)));
     }
@@ -41,7 +48,7 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
     zip.add("[Content_Types].xml", content_types(footer, &pictures).as_bytes())?;
     let package = opc::relationships(&[("officeDocument", "word/document.xml")]);
     zip.add("_rels/.rels", package.as_bytes())?;
-    zip.add("word/document.xml", body(document, room, first_media).as_bytes())?;
+    zip.add("word/document.xml", body(document, room, first_media, &pictures).as_bytes())?;
     zip.add("word/_rels/document.xml.rels", opc::relationships(&parts).as_bytes())?;
     zip.add("word/styles.xml", styles().as_bytes())?;
     if footer {
@@ -102,7 +109,12 @@ fn page_number_footer() -> String {
     xml.finish()
 }
 
-fn body(document: &Document, room: (f64, f64), first_media: usize) -> String {
+fn body(
+    document: &Document,
+    room: (f64, f64),
+    first_media: usize,
+    pictures: &[&Picture],
+) -> String {
     // What reads in no direction of its own (figures, punctuation) takes the
     // document's.
     let rtl = document.reads_right_to_left();
@@ -116,7 +128,7 @@ fn body(document: &Document, room: (f64, f64), first_media: usize) -> String {
     ];
     xml.open("w:document", &namespaces);
     xml.open("w:body", &[]);
-    let mut pictures = 0;
+    let mut drawn = 0;
     for block in document.blocks() {
         match block {
             Block::Heading { level, text } => {
@@ -125,10 +137,10 @@ fn body(document: &Document, room: (f64, f64), first_media: usize) -> String {
             }
             Block::Paragraph(content) => paragraph(&mut xml, content, rtl),
             Block::Table(content) => table(&mut xml, content, document, rtl),
-            Block::Picture(content) => {
-                pictures += 1;
-                let relationship = format!("rId{}", first_media + pictures - 1);
-                picture::paragraph(&mut xml, content, room, pictures, &relationship);
+            Block::Picture(_) | Block::Symbol(_) => {
+                drawn += 1;
+                let relationship = format!("rId{}", first_media + drawn - 1);
+                picture::paragraph(&mut xml, pictures[drawn - 1], room, drawn, &relationship);
             }
             Block::PageBreak => {
                 xml.open("w:p", &[]);

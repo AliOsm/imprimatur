@@ -9,7 +9,8 @@ a 40,000-character cell is refused at the door, not discovered by Excel's
   as `imprimatur` on crates.io; the gem wraps it.
 - **No third-party format stack.** The XML writer and the zip container are
   written here, from ECMA-376 and the zip specification; only deflate
-  (`miniz_oxide`) and CRC-32 (`crc32fast`) come from crates.
+  (`miniz_oxide`) and CRC-32 (`crc32fast`) come from crates, and QR Code and
+  Data Matrix encoding (`qrcode`, `datamatrix`) for barcodes.
 - **Deterministic.** The same document always gives the same bytes.
 - **Native only.** CRuby 4.0+. No pure Ruby fallback, no JRuby, no TruffleRuby.
 
@@ -222,6 +223,45 @@ dashes, the euro sign. Anything else (Arabic, Hebrew, Greek, CJK, emoji) raises
 `Imprimatur::Error` naming the character, never a `?`. DOCX carries any
 script. Embedded TrueType fonts, and with them every script and proper RTL in
 PDF, are the next step.
+
+## Barcodes
+
+QR Code, Data Matrix, EAN-13, EAN-8, UPC-A and Code 128, and the GS1 forms of
+QR Code, Data Matrix and Code 128 (GS1-128):
+
+```ruby
+qr = Imprimatur.barcode(:qr, "https://id.gs1.org/01/09506000134352", level: :m)
+File.write("qr.svg", qr.svg(module_size: 4))
+File.binwrite("qr.png", qr.png(module_size: 8, background: nil)) # transparent
+
+ean = Imprimatur.barcode(:ean13, "950600013435")
+ean.text # => "9506000134352", the check digit added (or checked when given)
+
+label = Imprimatur.barcode(:code128, "(00)106141412345678908", gs1: true)  # GS1-128
+dpp = Imprimatur.barcode(:datamatrix, "(01)09506000134352(21)ABC123", gs1: true)
+
+Imprimatur.pdf("label.pdf", page_size: [300, 200], margin: 10) do |doc|
+  doc.barcode label, width: 280
+  doc.barcode dpp, width: 72, align: :right
+end
+```
+
+- `:qr` (`level:` `:l`, `:m`, `:q` or `:h`), `:datamatrix` (square),
+  `:ean13`, `:ean8`, `:upca` and `:code128`; `gs1: true` for the GS1 forms of
+  `:qr`, `:datamatrix` and `:code128`.
+- GS1 element strings are written as people write them, AIs in parentheses,
+  and checked: AI syntax, GS1's character set, the AIs whose lengths are
+  predefined, and the check digits of SSCCs, GTINs and GLNs. Separators go in
+  only where a variable-length field needs one.
+- `svg` and `png` take `module_size:`, `color:`, `background:` (nil for
+  none), `quiet_zone:` and, for linear codes, `bar_height:` in modules. PNGs
+  are one bit a pixel.
+- In documents, barcodes are vector shapes in a PDF and a 300 dpi picture in
+  DOCX, at `width:` or `height:` points or else at their usual module size
+  (0.33 mm for EAN and UPC, 0.495 mm for GS1-128, 0.7 mm for QR Code and Data
+  Matrix), quiet zone included.
+- `text`, `symbology`, `gs1?`, `width`, `height` (in modules), and `modules`
+  (rows of booleans) for drawing them some other way.
 
 ## Reading: documents as Markdown
 

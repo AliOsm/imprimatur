@@ -23,6 +23,7 @@
 
 mod paragraph;
 pub(crate) mod picture;
+mod symbol;
 mod table;
 #[cfg(test)]
 mod tests;
@@ -33,6 +34,7 @@ use std::path::Path;
 
 pub use paragraph::{Paragraph, Run};
 pub use picture::Picture;
+pub use symbol::Symbol;
 pub use table::Table;
 
 use crate::script::Counts;
@@ -96,6 +98,7 @@ pub enum Block {
     Paragraph(Paragraph),
     Table(Table),
     Picture(Picture),
+    Symbol(Symbol),
     PageBreak,
 }
 
@@ -155,6 +158,13 @@ impl Document {
     /// A picture, in the flow of the text.
     pub fn picture(&mut self, picture: Picture) -> &mut Self {
         self.blocks.push(Block::Picture(picture));
+        self
+    }
+
+    /// A barcode, in the flow of the text: a [`Barcode`](crate::barcode::Barcode)
+    /// at its usual size, or a [`Symbol`] sized and aligned.
+    pub fn barcode(&mut self, symbol: impl Into<Symbol>) -> &mut Self {
+        self.blocks.push(Block::Symbol(symbol.into()));
         self
     }
 
@@ -222,7 +232,7 @@ impl Document {
                     paragraph.runs.iter().for_each(|run| counts.add(&run.text));
                 }
                 Block::Table(table) => table.count(&mut counts),
-                Block::Picture(_) | Block::PageBreak => {}
+                Block::Picture(_) | Block::Symbol(_) | Block::PageBreak => {}
             }
         }
         counts.right_to_left()

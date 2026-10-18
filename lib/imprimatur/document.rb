@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Imprimatur
-  # A flowing document (headings, paragraphs, tables, pictures, page breaks)
+  # A flowing document (headings, paragraphs, tables, pictures, barcodes, page breaks)
   # that renders to PDF and DOCX from the same content.
   #
   #   doc = Imprimatur::Document.new(page_numbers: true)
@@ -46,6 +46,22 @@ module Imprimatur
     # @raise [Imprimatur::Error] no PNG or JPEG, or one it cannot draw
     def image(source, width: nil, height: nil, align: nil)
       @native.picture(Reader.read(source), width && Float(width), height && Float(height), align&.to_s)
+      self
+    end
+
+    # A barcode in the flow: vector shapes in a PDF, a 300 dpi picture in DOCX.
+    # Drawn at +width+ or +height+ points (a QR Code or Data Matrix keeps
+    # square modules; a linear code's height is its bars'), or else at its
+    # symbology's usual module size; never larger than the page leaves room for.
+    # Its quiet zone is part of its size.
+    #
+    # @param barcode [Barcode] from {Imprimatur.barcode}
+    # @param align [:left, :center, :right, nil]
+    # @param color [String, nil] the bars, "#RRGGBB"; black unless set
+    # @return [self]
+    # @raise [Imprimatur::Error] a size out of range, or an invalid color
+    def barcode(barcode, width: nil, height: nil, align: nil, color: nil)
+      @native.barcode(barcode, [width && Float(width), height && Float(height)], align&.to_s, color&.to_s)
       self
     end
 

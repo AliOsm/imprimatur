@@ -129,6 +129,20 @@ pub fn png(
     palette: Option<&[u8]>,
     rows: &[u8],
 ) -> Vec<u8> {
+    png_with_transparency(width, height, color, bits, palette, &[], rows)
+}
+
+/// As [`png`], with a `tRNS` chunk unless `transparency` is empty: a
+/// palette's alphas by index, or the gray or RGB color that is transparent.
+pub fn png_with_transparency(
+    width: u32,
+    height: u32,
+    color: PngColor,
+    bits: u8,
+    palette: Option<&[u8]>,
+    transparency: &[u8],
+    rows: &[u8],
+) -> Vec<u8> {
     let channels: usize = match color {
         PngColor::Gray | PngColor::Palette => 1,
         PngColor::GrayAlpha => 2,
@@ -156,6 +170,9 @@ pub fn png(
     chunk(&mut out, *b"IHDR", &header);
     if let Some(palette) = palette {
         chunk(&mut out, *b"PLTE", palette);
+    }
+    if !transparency.is_empty() {
+        chunk(&mut out, *b"tRNS", transparency);
     }
     chunk(&mut out, *b"IDAT", &compressed);
     chunk(&mut out, *b"IEND", &[]);

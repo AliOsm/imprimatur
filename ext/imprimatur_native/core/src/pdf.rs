@@ -38,6 +38,7 @@ pub fn write<W: Write>(document: &Document, out: W) -> Result<W> {
                 layout.picture(picture, pictures.len());
                 pictures.push(picture);
             }
+            Block::Symbol(symbol) => layout.symbol(symbol),
             Block::PageBreak => layout.page_break(),
         }
     }

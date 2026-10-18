@@ -6,6 +6,7 @@ require_relative 'imprimatur/formula'
 require_relative 'imprimatur/native'
 require_relative 'imprimatur/style'
 require_relative 'imprimatur/validation'
+require_relative 'imprimatur/barcode'
 require_relative 'imprimatur/xlsx'
 require_relative 'imprimatur/document'
 require_relative 'imprimatur/reader'
@@ -37,6 +38,9 @@ module Imprimatur
 
     # @see Validation.build
     def validation(**) = Validation.build(**)
+
+    # @see Barcode.encode
+    def barcode(symbology, data, **) = Barcode.encode(symbology, data, **)
 
     # Builds a {Document} and renders it as PDF. With a path, saves it there
     # and returns the path; without, returns the bytes.

@@ -41,6 +41,17 @@ impl Color {
     pub(crate) fn argb(self) -> String {
         format!("FF{:06X}", self.0)
     }
+
+    /// `#RRGGBB`, as SVG takes it.
+    pub(crate) fn hex(self) -> String {
+        format!("#{:06X}", self.0)
+    }
+
+    /// Red, green and blue bytes.
+    pub(crate) const fn bytes(self) -> [u8; 3] {
+        let [_, r, g, b] = self.0.to_be_bytes();
+        [r, g, b]
+    }
 }
 
 /// Horizontal alignment within the cell.

@@ -38,9 +38,10 @@ pub use content::{
     Block, Bounds, Cell, Columns, Content, Grid, Look, Mark, Note, Page, Placed, Sheet, Styled,
     Text, Validation, Value,
 };
-pub use image::{Image, ImageFormat, ImageLocation};
 #[cfg(test)]
-pub(crate) use image::{PngColor, png};
+pub(crate) use image::png;
+pub use image::{Image, ImageFormat, ImageLocation};
+pub(crate) use image::{PngColor, png_with_transparency};
 
 use crate::zip::reader::ZipReader;
 use crate::{Error, Result};

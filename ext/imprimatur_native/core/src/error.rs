@@ -88,6 +88,12 @@ pub enum Error {
     #[error("a table row needs {0:.0}pt, more than a whole page holds")]
     RowTooTall(f64),
 
+    #[error("invalid {symbology} barcode: {reason}")]
+    InvalidBarcode { symbology: &'static str, reason: String },
+
+    #[error("invalid GS1 element string: {0}")]
+    InvalidElementString(String),
+
     #[error("a workbook needs at least one sheet")]
     EmptyWorkbook,
 

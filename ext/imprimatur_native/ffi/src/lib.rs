@@ -4,6 +4,7 @@
 //! drives them; sheets cross as indices.
 
 mod archive;
+mod barcode;
 mod blocking;
 mod convert;
 mod document;
@@ -315,6 +316,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     style.define_singleton_method("__build", function!(Style::build, 13))?;
     let validation = imprimatur.define_class("Validation", ruby.class_object())?;
     validation.define_singleton_method("__build", function!(Validation::build, 8))?;
+    barcode::define(ruby, imprimatur)?;
 
     let native = imprimatur.define_module("Native")?;
     native.define_singleton_method("markdown", function!(read::markdown_native, 4))?;

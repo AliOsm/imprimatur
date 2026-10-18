@@ -50,6 +50,20 @@ sheet.add_validation("A2:A1000".parse()?, short)?;
 # Ok::<(), imprimatur::Error>(())
 ```
 
+```rust
+use imprimatur::barcode::{Barcode, Level, Look};
+use imprimatur::doc::{Document, Symbol};
+
+let qr = Barcode::qr("https://id.gs1.org/01/09506000134352", Level::Medium)?;
+let svg = qr.svg(4.0, &Look::default())?; // or png(scale, &look)
+let label = Barcode::gs1_128("(00)106141412345678908")?; // GS1 element strings, checked
+let mut doc = Document::new();
+doc.barcode(Symbol::new(label).width(250.0)?); // vector shapes in PDF
+doc.barcode(Barcode::ean13("950600013435")?); // the check digit, added
+let pdf = doc.to_pdf()?;
+# Ok::<(), imprimatur::Error>(())
+```
+
 Everything Excel would refuse is an `Error` before a byte is written: invalid
 or duplicate sheet names, positions beyond 1,048,576 rows or 16,384 columns,
 text over 32,767 characters, formulas over 8,192, NaN and infinity, font
@@ -105,8 +119,16 @@ variable fonts are not supported. This is a Rust font-data API only: document
 font selection, PDF embedding, shaping and bidirectional layout are not
 implemented by it; PDF writing still uses Helvetica.
 
+Barcodes: QR Code and Data Matrix (their GS1 forms too), EAN-13, EAN-8, UPC-A,
+Code 128 and GS1-128, drawn as SVG, as PNG, or into a document (shapes in a
+PDF, a 300 dpi picture in DOCX). GS1 element strings are checked: AI syntax,
+GS1's character set, predefined lengths, and the check digits of SSCCs, GTINs
+and GLNs.
+
 Dependencies: `miniz_oxide`, `crc32fast` and `thiserror`; reading encrypted
-PDFs adds `md-5`, `sha2` and `aes`.
+PDFs adds `md-5`, `sha2` and `aes`; barcodes add `qrcode` and `datamatrix`
+(for their error correction and placement; the linear codes, GS1 and the
+drawing are ours).
 
 Three features add what the core does not need: `json` (`read::json`, the
 schema the command line and the Ruby gem print, through `serde_json`),

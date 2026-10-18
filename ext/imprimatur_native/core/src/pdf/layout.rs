@@ -8,7 +8,7 @@ use std::fmt::{self, Arguments, Write as _};
 
 use super::font::Face;
 use super::objects::{Num, push_string};
-use crate::doc::{Document, Paragraph, Picture, Table};
+use crate::doc::{Document, Paragraph, Picture, Symbol, Table};
 use crate::style::{Align, Color};
 use crate::{Error, Result};
 use wrap::{Line, Look, wrap};
@@ -129,20 +129,30 @@ impl Layout {
     /// Draws picture `index` (`/Im{index}`), on a new page when it does not
     /// fit, as its alignment says.
     pub fn picture(&mut self, picture: &Picture, index: usize) {
-        let room = (self.content_width(), (-2.0f64).mul_add(self.margin, self.height));
-        let (width, height) = picture.size(room);
-        self.ensure_room(height);
-        let x = self.margin
-            + match picture.align.unwrap_or(Align::Left) {
-                Align::Left => 0.0,
-                Align::Center => (room.0 - width) / 2.0,
-                Align::Right => room.0 - width,
-            };
-        self.y -= height;
-        let (width, height, x, y) = (Num(width), Num(height), Num(x), Num(self.y));
+        let (width, height) = picture.size(self.room());
+        let (x, y) = self.place((width, height), picture.align);
+        let (width, height, x, y) = (Num(width), Num(height), Num(x), Num(y));
         emit(self.current(), format_args!("q {width} 0 0 {height} {x} {y} cm /Im{index} Do Q\n"));
-        self.y -= PARAGRAPH_GAP;
-        self.blank = false;
+        self.end_figure();
+    }
+
+    /// Draws a barcode as filled rectangles, one module a unit, the
+    /// coordinates flipped to run down from its top left corner.
+    pub fn symbol(&mut self, symbol: &Symbol) {
+        let (shapes, (width, height)) = symbol.placed(self.room());
+        let (x, y) = self.place((width, height), symbol.align);
+        let (columns, rows) = shapes.extent();
+        let (across, down) = (width / columns, height / rows);
+        let (fill, top, x) = (Fill(symbol.color), Num(y + height), Num(x));
+        let page = self.current();
+        // Four decimals: a module's size in hundredths of a point would be
+        // off by up to half a percent across the symbol.
+        emit(page, format_args!("q {fill} {across:.4} 0 0 {:.4} {x} {top} cm\n", -down));
+        for [x, y, run, rows] in &shapes.rects {
+            emit(page, format_args!("{x} {y} {run} {rows} re\n"));
+        }
+        page.extend_from_slice(b"f Q\n");
+        self.end_figure();
     }
 
     pub fn page_break(&mut self) {
@@ -164,6 +174,30 @@ impl Layout {
             }
         }
         self.pages
+    }
+
+    /// The width and height between the margins.
+    const fn room(&self) -> (f64, f64) {
+        (self.content_width(), (-2.0f64).mul_add(self.margin, self.height))
+    }
+
+    /// Makes room for a figure of `size`, on a new page when it does not
+    /// fit, and returns its bottom left corner as `align` places it.
+    fn place(&mut self, (width, height): (f64, f64), align: Option<Align>) -> (f64, f64) {
+        self.ensure_room(height);
+        let x = self.margin
+            + match align.unwrap_or(Align::Left) {
+                Align::Left => 0.0,
+                Align::Center => (self.content_width() - width) / 2.0,
+                Align::Right => self.content_width() - width,
+            };
+        self.y -= height;
+        (x, self.y)
+    }
+
+    fn end_figure(&mut self) {
+        self.y -= PARAGRAPH_GAP;
+        self.blank = false;
     }
 
     /// Starts a new page unless `needed` points fit above the bottom margin

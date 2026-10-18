@@ -1,8 +1,11 @@
 use std::assert_matches;
 
 use crate::Error;
-use crate::doc::{Document, PageSize, Paragraph, Picture, Run, Table};
-use crate::read::{ImageFormat, ImageLocation, Limits, PngColor, images, png};
+use crate::barcode::{Barcode, Level};
+use crate::doc::{Document, PageSize, Paragraph, Picture, Run, Symbol, Table};
+use crate::read::{
+    ImageFormat, ImageLocation, Limits, PngColor, images, png, png_with_transparency,
+};
 use crate::style::{Align, Color};
 
 /// Checks the file's structure and returns each page's decompressed content.
@@ -132,12 +135,18 @@ fn an_empty_document_is_one_blank_page() {
 #[test]
 fn draws_pictures() {
     let gray = png(2, 2, PngColor::Gray, 8, None, &[0, 255, 255, 0]);
-    let indexed = png(4, 1, PngColor::Palette, 2, Some(&[255, 0, 0, 0, 0, 255]), &[0b0001_0001]);
-    // tRNS goes before the pixels: the second color fully transparent.
-    let idat = find(&indexed, b"IDAT").unwrap() - 4;
-    let crc = crc32fast::hash(b"tRNS\xFF\x00").to_be_bytes();
-    let chunk = [&[0, 0, 0, 2][..], b"tRNS\xFF\x00", &crc].concat();
-    let transparent = [&indexed[..idat], &chunk, &indexed[idat..]].concat();
+    let palette = [255, 0, 0, 0, 0, 255];
+    let indexed = png(4, 1, PngColor::Palette, 2, Some(&palette), &[0b0001_0001]);
+    // The second color fully transparent.
+    let transparent = png_with_transparency(
+        4,
+        1,
+        PngColor::Palette,
+        2,
+        Some(&palette),
+        b"\xFF\x00",
+        &[0b0001_0001],
+    );
     let rgba = png(1, 1, PngColor::Rgba, 8, None, &[10, 20, 30, 128]);
     // An 8-bit, 3 by 2, RGB baseline frame header.
     let jpeg =
@@ -182,4 +191,31 @@ fn draws_pictures() {
     );
     assert_eq!(found[3].data[25], 6, "its alpha comes back: RGBA");
     assert_matches!(Picture::new(b"GIF89a".to_vec()), Err(Error::InvalidImage(_)));
+}
+
+#[test]
+fn draws_barcodes_as_shapes() {
+    let mut doc = Document::new();
+    doc.set_page_size(PageSize::custom(300.0, 400.0).unwrap()).set_margin(10.0).unwrap();
+    // At its usual size: 0.935 points a module, 113 modules wide with the
+    // quiet zone, bars 69 modules high.
+    let ean = Barcode::ean13("9506000134352").unwrap();
+    doc.barcode(ean.clone());
+    let qr = Barcode::qr("https://example.com", Level::Medium).unwrap();
+    let side = qr.size().0 + 8;
+    let rects = ean.shapes(true, None).rects.len() + qr.shapes(true, None).rects.len();
+    let symbol = Symbol::new(qr).width(116.0).unwrap().align(Align::Right);
+    doc.barcode(symbol.color(Color::rgb(0x1F_3864)));
+    let pages = pages(&doc.to_pdf().unwrap());
+    assert_eq!(pages.len(), 1);
+    let page = &pages[0];
+    // From the top margin down, flipped: the EAN's top at 390.
+    assert!(page.starts_with("q 0 0 0 rg 0.9350 0 0 -0.9350 10 390 cm\n11 0 1 69 re\n"), "{page}");
+    let qr_module = 116.0 / f64::from(u32::try_from(side).unwrap());
+    let qr_top = 69.0f64.mul_add(-0.935, 390.0) - 6.0;
+    let expected =
+        format!("q 0.12 0.22 0.39 rg {qr_module:.4} 0 0 {:.4} 174 {qr_top:.2} cm\n", -qr_module);
+    assert!(page.contains(&expected), "{expected}\n{page}");
+    assert_eq!(page.matches(" re\n").count(), rects, "one rectangle a run");
+    assert_eq!(page.matches("f Q\n").count(), 2);
 }
